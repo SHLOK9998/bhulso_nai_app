@@ -1,5 +1,5 @@
+import React, { useEffect, useState } from "react";
 import { Tabs, Redirect } from "expo-router";
-import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";

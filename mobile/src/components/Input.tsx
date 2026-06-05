@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { View, TextInput, Pressable, type TextInputProps } from "react-native";
 import { colors, radii, shadows } from "@/lib/theme";
 import { Ionicons } from "@expo/vector-icons";

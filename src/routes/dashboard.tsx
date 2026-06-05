@@ -246,7 +246,7 @@ function Dashboard() {
         <Card className="rounded-2xl p-6 shadow-[var(--shadow-soft)] lg:col-span-2">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">{t("dashboard.todayTitle")}</h3>
-            <Link to="/medicines"><Button size="sm" variant="ghost" className="gap-1 rounded-xl"><Plus className="h-4 w-4" />{t("dashboard.addMedicine")}</Button></Link>
+            <Link to="/medicines" search={{ memberId: undefined }}><Button size="sm" variant="ghost" className="gap-1 rounded-xl"><Plus className="h-4 w-4" />{t("dashboard.addMedicine")}</Button></Link>
           </div>
           {todaysItems.length === 0 ? (
             <div className="mt-6 rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
@@ -328,7 +328,7 @@ function Dashboard() {
       </Card>
 
       <div className="mt-6 grid gap-5 md:grid-cols-3">
-        <Link to="/medicines"><Card className="group flex h-full cursor-pointer items-center gap-4 rounded-2xl p-5 shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-glow)]">
+        <Link to="/medicines" search={{ memberId: undefined }}><Card className="group flex h-full cursor-pointer items-center gap-4 rounded-2xl p-5 shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-glow)]">
           <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary/10 text-primary"><Pill className="h-6 w-6" /></div>
           <div><div className="font-semibold">{t("dashboard.addMedicine")}</div><div className="text-xs text-muted-foreground">{t("med.title")}</div></div>
         </Card></Link>

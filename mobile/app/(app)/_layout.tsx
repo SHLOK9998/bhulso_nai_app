@@ -1,15 +1,18 @@
 import { Tabs, Redirect } from "expo-router";
 import { useEffect, useState } from "react";
-import { Text, View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator } from "react-native";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
+import { useTranslation } from "react-i18next";
+import { Ionicons } from "@expo/vector-icons";
 
-function TabIcon({ label, focused }: { label: string; focused: boolean }) {
-  return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.55 }}>{label}</Text>;
+function TabIcon({ name, focused }: { name: any; focused: boolean }) {
+  return <Ionicons name={focused ? name : `${name}-outline`} size={22} color={focused ? colors.primary : colors.subtle} />;
 }
 
 export default function AppLayout() {
+  const { t } = useTranslation();
   const { user, loading } = useAuth();
   const [checking, setChecking] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
@@ -59,12 +62,12 @@ export default function AppLayout() {
         tabBarInactiveTintColor: colors.subtle,
       }}
     >
-      <Tabs.Screen name="dashboard" options={{ title: "Dashboard", tabBarLabel: "Home", tabBarIcon: ({ focused }) => <TabIcon label="🏠" focused={focused} /> }} />
-      <Tabs.Screen name="medicines" options={{ title: "Medicines", tabBarLabel: "Meds", tabBarIcon: ({ focused }) => <TabIcon label="💊" focused={focused} /> }} />
-      <Tabs.Screen name="log" options={{ title: "Health Log", tabBarLabel: "Log", tabBarIcon: ({ focused }) => <TabIcon label="📝" focused={focused} /> }} />
-      <Tabs.Screen name="family" options={{ title: "Family", tabBarIcon: ({ focused }) => <TabIcon label="👨‍👩‍👧" focused={focused} /> }} />
-      <Tabs.Screen name="symptoms" options={{ title: "AI Symptoms", tabBarLabel: "AI", tabBarIcon: ({ focused }) => <TabIcon label="✨" focused={focused} /> }} />
-      <Tabs.Screen name="settings" options={{ title: "Settings", tabBarIcon: ({ focused }) => <TabIcon label="⚙️" focused={focused} /> }} />
+      <Tabs.Screen name="dashboard" options={{ title: t("nav.dashboard", "Dashboard"), tabBarLabel: t("nav.dashboard", "Home"), tabBarIcon: ({ focused }) => <TabIcon name="home" focused={focused} /> }} />
+      <Tabs.Screen name="medicines" options={{ title: t("nav.medicines", "Medicines"), tabBarLabel: t("nav.medicines", "Meds"), tabBarIcon: ({ focused }) => <TabIcon name="medkit" focused={focused} /> }} />
+      <Tabs.Screen name="log" options={{ title: t("nav.log", "Health Log"), tabBarLabel: t("nav.log", "Log"), tabBarIcon: ({ focused }) => <TabIcon name="clipboard" focused={focused} /> }} />
+      <Tabs.Screen name="family" options={{ title: t("nav.family", "Family"), tabBarLabel: t("nav.family", "Family"), tabBarIcon: ({ focused }) => <TabIcon name="people" focused={focused} /> }} />
+      <Tabs.Screen name="symptoms" options={{ title: t("nav.symptoms", "AI Symptoms"), tabBarLabel: t("nav.symptoms", "AI"), tabBarIcon: ({ focused }) => <TabIcon name="sparkles" focused={focused} /> }} />
+      <Tabs.Screen name="settings" options={{ title: t("nav.settings", "Settings"), tabBarLabel: t("nav.settings", "Settings"), tabBarIcon: ({ focused }) => <TabIcon name="settings" focused={focused} /> }} />
       <Tabs.Screen name="onboarding" options={{ href: null }} />
     </Tabs>
   );

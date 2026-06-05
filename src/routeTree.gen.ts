@@ -24,6 +24,7 @@ import { Route as FamilyRouteImport } from './routes/family'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiAnalyzeSymptomsRouteImport } from './routes/api/analyze-symptoms'
+import { Route as ApiAdviceRouteImport } from './routes/api/advice'
 
 const SymptomsRoute = SymptomsRouteImport.update({
   id: '/symptoms',
@@ -100,6 +101,11 @@ const ApiAnalyzeSymptomsRoute = ApiAnalyzeSymptomsRouteImport.update({
   path: '/api/analyze-symptoms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdviceRoute = ApiAdviceRouteImport.update({
+  id: '/api/advice',
+  path: '/api/advice',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/symptoms': typeof SymptomsRoute
+  '/api/advice': typeof ApiAdviceRoute
   '/api/analyze-symptoms': typeof ApiAnalyzeSymptomsRoute
 }
 export interface FileRoutesByTo {
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/symptoms': typeof SymptomsRoute
+  '/api/advice': typeof ApiAdviceRoute
   '/api/analyze-symptoms': typeof ApiAnalyzeSymptomsRoute
 }
 export interface FileRoutesById {
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/symptoms': typeof SymptomsRoute
+  '/api/advice': typeof ApiAdviceRoute
   '/api/analyze-symptoms': typeof ApiAnalyzeSymptomsRoute
 }
 export interface FileRouteTypes {
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/symptoms'
+    | '/api/advice'
     | '/api/analyze-symptoms'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/symptoms'
+    | '/api/advice'
     | '/api/analyze-symptoms'
   id:
     | '__root__'
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/symptoms'
+    | '/api/advice'
     | '/api/analyze-symptoms'
   fileRoutesById: FileRoutesById
 }
@@ -222,6 +234,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
   SymptomsRoute: typeof SymptomsRoute
+  ApiAdviceRoute: typeof ApiAdviceRoute
   ApiAnalyzeSymptomsRoute: typeof ApiAnalyzeSymptomsRoute
 }
 
@@ -332,6 +345,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAnalyzeSymptomsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/advice': {
+      id: '/api/advice'
+      path: '/api/advice'
+      fullPath: '/api/advice'
+      preLoaderRoute: typeof ApiAdviceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -350,6 +370,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
   SymptomsRoute: SymptomsRoute,
+  ApiAdviceRoute: ApiAdviceRoute,
   ApiAnalyzeSymptomsRoute: ApiAnalyzeSymptomsRoute,
 }
 export const routeTree = rootRouteImport

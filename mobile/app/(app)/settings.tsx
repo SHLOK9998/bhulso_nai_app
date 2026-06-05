@@ -7,7 +7,8 @@ import { useAuth } from "@/lib/auth";
 import { setLanguage } from "@/lib/i18n";
 import { Card, Button, Field } from "@/components/UI";
 import { Input } from "@/components/Input";
-import { colors, radii } from "@/lib/theme";
+import { colors, radii, shadows } from "@/lib/theme";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function Settings() {
   const { t, i18n } = useTranslation();
@@ -29,21 +30,21 @@ export default function Settings() {
     setSavingProfile(true);
     const { error } = await supabase.from("profiles").update({ name, language: i18n.language, updated_at: new Date().toISOString() }).eq("id", user.id);
     setSavingProfile(false);
-    if (error) return Alert.alert("Profile", error.message);
-    Alert.alert("Profile", t("settings.saved"));
+    if (error) return Alert.alert(t("settings.title"), error.message);
+    Alert.alert(t("settings.title"), t("settings.saved"));
   };
 
   const setLang = (lng: string) => { setLanguage(lng); };
 
   const updatePassword = async () => {
-    if (pw.length < 6) return Alert.alert("Password", "Min 6 characters");
-    if (pw !== pw2) return Alert.alert("Password", "Passwords don't match");
+    if (pw.length < 6) return Alert.alert(t("auth.newPassword"), t("auth.passwordTooShort"));
+    if (pw !== pw2) return Alert.alert(t("auth.newPassword"), t("auth.passwordMismatch"));
     setPwBusy(true);
     const { error } = await supabase.auth.updateUser({ password: pw });
     setPwBusy(false);
-    if (error) return Alert.alert("Update", error.message);
+    if (error) return Alert.alert(t("auth.updatePassword"), error.message);
     setPw(""); setPw2("");
-    Alert.alert("Password", t("auth.passwordUpdated"));
+    Alert.alert(t("auth.updatePassword"), t("auth.passwordUpdated"));
   };
 
   const toggleAlarms = async () => {
@@ -54,11 +55,17 @@ export default function Settings() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }}>
-      <Text style={{ color: colors.text, fontSize: 26, fontWeight: "800" }}>{t("settings.title")}</Text>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <Text style={{ color: colors.text, fontSize: 24, fontWeight: "800" }}>{t("settings.title")}</Text>
+        <Ionicons name="settings-outline" size={26} color={colors.primary} />
+      </View>
 
       {/* Profile */}
       <Card style={{ gap: 14 }}>
-        <Text style={{ color: colors.text, fontWeight: "700", fontSize: 16 }}>{t("settings.profile")}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Ionicons name="person-outline" size={18} color={colors.primary} />
+          <Text style={{ color: colors.text, fontWeight: "700", fontSize: 16 }}>{t("settings.profile")}</Text>
+        </View>
         <Field label={t("auth.email")}>
           <Input value={user?.email ?? ""} editable={false} style={{ backgroundColor: colors.cardAlt, color: colors.muted }} />
         </Field>
@@ -68,8 +75,17 @@ export default function Settings() {
         <Field label={t("settings.language") ?? "Language"}>
           <View style={{ flexDirection: "row", gap: 8 }}>
             {[{ k: "en", l: "English" }, { k: "hi", l: "हिंदी" }, { k: "gu", l: "ગુજરાતી" }].map((x) => (
-              <Pressable key={x.k} onPress={() => setLang(x.k)} style={{ flex: 1, padding: 12, borderRadius: radii.md, backgroundColor: i18n.language === x.k ? colors.primary : colors.surface, borderWidth: 1, borderColor: i18n.language === x.k ? colors.primary : colors.border }}>
-                <Text style={{ color: i18n.language === x.k ? "#fff" : colors.text, textAlign: "center", fontWeight: "600", fontSize: 13 }}>{x.l}</Text>
+              <Pressable
+                key={x.k}
+                onPress={() => setLang(x.k)}
+                style={{
+                  flex: 1, padding: 12, borderRadius: radii.md,
+                  backgroundColor: i18n.language === x.k ? colors.primary + "15" : colors.surface,
+                  borderWidth: 1.5, borderColor: i18n.language === x.k ? colors.primary : colors.border,
+                  ...shadows.sm
+                }}
+              >
+                <Text style={{ color: i18n.language === x.k ? colors.primary : colors.text, textAlign: "center", fontWeight: "700", fontSize: 13 }}>{x.l}</Text>
               </Pressable>
             ))}
           </View>
@@ -78,23 +94,29 @@ export default function Settings() {
       </Card>
 
       {/* Notifications */}
-      <Card>
-        <Text style={{ color: colors.text, fontWeight: "700", fontSize: 16 }}>{t("notifications.title")}</Text>
-        <Text style={{ color: colors.muted, fontSize: 13, marginTop: 4 }}>{t("notifications.sub")}</Text>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 14, padding: 12, borderRadius: radii.md, borderWidth: 1, borderColor: colors.border }}>
-          <View style={{ flex: 1 }}>
+      <Card style={{ gap: 10 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Ionicons name="notifications-outline" size={18} color={colors.primary} />
+          <Text style={{ color: colors.text, fontWeight: "700", fontSize: 16 }}>{t("notifications.title")}</Text>
+        </View>
+        <Text style={{ color: colors.muted, fontSize: 13 }}>{t("notifications.sub")}</Text>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6, padding: 12, borderRadius: radii.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card }}>
+          <View style={{ flex: 1, marginRight: 12 }}>
             <Text style={{ color: colors.text, fontWeight: "700", fontSize: 14 }}>{t("notifications.enable")}</Text>
-            <Text style={{ color: colors.muted, fontSize: 12 }}>Daily medicine reminders</Text>
+            <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>Daily medicine reminders</Text>
           </View>
           <Pressable onPress={toggleAlarms} style={{ width: 52, height: 30, borderRadius: 15, backgroundColor: alarms ? colors.primary : colors.border, justifyContent: "center", paddingHorizontal: 3 }}>
-            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#fff", alignSelf: alarms ? "flex-end" : "flex-start" }} />
+            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#fff", alignSelf: alarms ? "flex-end" : "flex-start", ...shadows.sm }} />
           </Pressable>
         </View>
       </Card>
 
       {/* Password */}
       <Card style={{ gap: 12 }}>
-        <Text style={{ color: colors.text, fontWeight: "700", fontSize: 16 }}>🔑 {t("auth.updatePassword")}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Ionicons name="key-outline" size={18} color={colors.primary} />
+          <Text style={{ color: colors.text, fontWeight: "700", fontSize: 16 }}>{t("auth.updatePassword")}</Text>
+        </View>
         <Text style={{ color: colors.muted, fontSize: 13 }}>{t("auth.updatePasswordSub")}</Text>
         <Field label={t("auth.newPassword")}><Input value={pw} onChangeText={setPw} secureTextEntry /></Field>
         <Field label={t("auth.confirmPassword")}><Input value={pw2} onChangeText={setPw2} secureTextEntry /></Field>
@@ -102,7 +124,12 @@ export default function Settings() {
       </Card>
 
       <Card>
-        <Button title={t("settings.logout") ?? "Sign out"} variant="outline" onPress={() => supabase.auth.signOut()} />
+        <Button
+          title={t("settings.logout") ?? "Sign out"}
+          variant="outline"
+          icon={<Ionicons name="log-out" size={20} color={colors.primary} />}
+          onPress={() => supabase.auth.signOut()}
+        />
       </Card>
     </ScrollView>
   );

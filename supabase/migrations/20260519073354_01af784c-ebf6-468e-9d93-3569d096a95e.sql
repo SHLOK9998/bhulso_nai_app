@@ -1,1 +1,0 @@
-ALTER TABLE public.medicines ADD COLUMN IF NOT EXISTS meal_timing text;

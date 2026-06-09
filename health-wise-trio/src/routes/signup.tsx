@@ -42,12 +42,33 @@ function Signup() {
     nav({ to: "/onboarding" });
   };
 
+  const handleLangChange = (code: string) => {
+    setLang(code);
+    setLanguage(code);
+    setTimeout(() => window.dispatchEvent(new Event("languagechange")), 0);
+  };
+
   return (
     <AppShell>
       <div className="mx-auto max-w-md py-8">
         <Card className="rounded-2xl p-8 shadow-[var(--shadow-soft)]">
           <h1 className="text-2xl font-bold">{t("auth.signupTitle")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("auth.signupSub")}</p>
+
+          <div className="flex gap-2 mt-4 justify-start">
+            {[{ code: "en", label: "English" }, { code: "hi", label: "हिंदी" }, { code: "gu", label: "ગુજરાતી" }].map((l) => (
+              <Button
+                key={l.code}
+                type="button"
+                variant={language === l.code ? "default" : "outline"}
+                onClick={() => handleLangChange(l.code)}
+                className="h-8 rounded-full text-xs font-semibold px-3"
+              >
+                {l.label}
+              </Button>
+            ))}
+          </div>
+
           <form onSubmit={submit} className="mt-6 space-y-4">
             <div>
               <Label htmlFor="name">{t("auth.name")}</Label>
@@ -63,7 +84,7 @@ function Signup() {
             </div>
             <div>
               <Label>{t("auth.language")}</Label>
-              <Select value={language} onValueChange={setLang}>
+              <Select value={language} onValueChange={handleLangChange}>
                 <SelectTrigger className="mt-1.5 h-12 rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="en">English</SelectItem>

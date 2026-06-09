@@ -103,14 +103,14 @@ export default function SettingsScreen() {
         <View style={styles.notifRow}>
           <View style={styles.notifLeft}>
             <Ionicons name={notifEnabled ? 'notifications' : 'notifications-off-outline'} size={22} color={notifEnabled ? Colors.primary : Colors.mutedForeground} />
-            <View>
-              <Text style={styles.notifLabel}>{t('notifications.enable')}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.notifLabel} numberOfLines={2}>{t('notifications.enable')}</Text>
               <Text style={styles.notifStatus}>{notifEnabled ? t('notifications.enabled') : ''}</Text>
             </View>
           </View>
           <TouchableOpacity onPress={requestNotifications} disabled={notifEnabled}
             style={[styles.permBtn, notifEnabled && { opacity: 0.5 }]}>
-            <Text style={styles.permBtnText}>{t('notifications.permRequest')}</Text>
+            <Text style={styles.permBtnText} numberOfLines={1} adjustsFontSizeToFit>{t('notifications.permRequest')}</Text>
           </TouchableOpacity>
         </View>
       </Card>
@@ -139,7 +139,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        <GradientButton title={pwBusy ? '...' : t('auth.updatePassword')} onPress={updatePassword} disabled={pwBusy || !newPw} style={{ marginTop: 18 }} />
+        <GradientButton title={pwBusy ? '...' : t('auth.updatePassword')} onPress={updatePassword} disabled={!newPw} loading={pwBusy} style={{ marginTop: 18 }} />
       </Card>
 
       {/* Logout */}
@@ -167,12 +167,12 @@ const styles = StyleSheet.create({
   langChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '15' },
   langChipText: { color: Colors.foreground, fontWeight: '600' },
   langChipTextActive: { color: Colors.primary },
-  notifRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.border },
-  notifLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  notifRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, gap: 10 },
+  notifLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, marginRight: 8 },
   notifLabel: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
   notifStatus: { fontSize: 12, color: Colors.success, marginTop: 1 },
-  permBtn: { backgroundColor: Colors.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  permBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  permBtn: { backgroundColor: Colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, minWidth: 90, alignItems: 'center', justifyContent: 'center' },
+  permBtnText: { color: '#fff', fontWeight: '700', fontSize: 13, textAlign: 'center' },
   pwWrap: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.background, paddingRight: 12 },
   eyeBtn: { padding: 4 },
 });

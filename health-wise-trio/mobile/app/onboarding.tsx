@@ -97,7 +97,7 @@ export default function OnboardingScreen() {
 
         <View style={[styles.row, { marginTop: 24, gap: 12 }]}>
           <OutlineButton title={t('onboarding.skip')} onPress={() => finish(true)} style={{ flex: 1 }} />
-          <GradientButton title={busy ? '...' : t('onboarding.finish')} onPress={() => finish(false)} disabled={busy} style={{ flex: 2 }} />
+          <GradientButton title={busy ? '...' : t('onboarding.finish')} onPress={() => finish(false)} loading={busy} style={{ flex: 2 }} />
         </View>
       </Card>
     </ScrollView>

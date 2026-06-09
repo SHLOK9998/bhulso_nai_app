@@ -30,7 +30,27 @@ type Med = {
 };
 
 const SELF_COLOR = "#0EA5A4";
-const MEAL_OPTIONS = ["none", "before_breakfast", "after_breakfast", "before_lunch", "after_lunch", "before_dinner", "after_dinner"] as const;
+
+export function formatMealTiming(mealTimingStr: string | null, t: any): string {
+  if (!mealTimingStr || mealTimingStr === "none") return "";
+  try {
+    if (mealTimingStr.startsWith("{")) {
+      const obj = JSON.parse(mealTimingStr);
+      const parts: string[] = [];
+      if (obj.morning && obj.morning !== "none") {
+        parts.push(`${t("med.morning")}: ${t(`med.meal.${obj.morning}`)}`);
+      }
+      if (obj.afternoon && obj.afternoon !== "none") {
+        parts.push(`${t("med.afternoon")}: ${t(`med.meal.${obj.afternoon}`)}`);
+      }
+      if (obj.night && obj.night !== "none") {
+        parts.push(`${t("med.night")}: ${t(`med.meal.${obj.night}`)}`);
+      }
+      return parts.join(", ");
+    }
+  } catch (e) {}
+  return t(`med.meal.${mealTimingStr}`, mealTimingStr);
+}
 
 function colorFor(med: Med, members: Member[]): string {
   if (med.member_id) {
@@ -93,7 +113,7 @@ function Medicines() {
               const owner = m.member_id ? members.find((x) => x.id === m.member_id) : null;
               return (
                 <motion.div key={m.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <Card className="h-full rounded-2xl p-5 shadow-[var(--shadow-soft)]">
+                  <Card className="h-full rounded-2xl p-5 shadow-[var(--shadow-soft)] border" style={{ backgroundColor: col + "12", borderColor: col + "33" }}>
                     <div className="flex items-start gap-3">
                       <div className="grid h-12 w-12 place-items-center rounded-xl" style={{ background: col + "22", color: col }}>
                         <Pill className="h-6 w-6" />
@@ -118,7 +138,7 @@ function Medicines() {
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {m.tags.map((tag) => <Badge key={tag} variant="secondary" className="rounded-lg">{t(`med.${tag}`, tag)}</Badge>)}
                       {m.meal_timing && m.meal_timing !== "none" && (
-                        <Badge variant="outline" className="rounded-lg">{t(`med.meal.${m.meal_timing}`)}</Badge>
+                        <Badge variant="outline" className="rounded-lg">{formatMealTiming(m.meal_timing, t)}</Badge>
                       )}
                       {m.duration_days != null ? (
                         <Badge variant="outline" className="gap-1 rounded-lg"><Clock className="h-3 w-3" />{t("med.days", { count: m.duration_days })}</Badge>
@@ -155,7 +175,7 @@ function MedicineDialog({ open, onOpenChange, med, members, prefillMember, onSav
   const [tags, setTags] = useState<string[]>([]);
   const [timeMap, setTimeMap] = useState<Record<string, string>>({});
   const [memberId, setMemberId] = useState<string>("self");
-  const [mealTiming, setMealTiming] = useState<string>("none");
+  const [mealTimingsObj, setMealTimingsObj] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -167,15 +187,47 @@ function MedicineDialog({ open, onOpenChange, med, members, prefillMember, onSav
       med.tags.forEach((tag, i) => { if (med.reminder_times[i]) newMap[tag] = med.reminder_times[i]; });
       setTimeMap(newMap);
       setMemberId(med.member_id ?? "self");
-      setMealTiming(med.meal_timing ?? "none");
+      
+      if (med.meal_timing) {
+        if (med.meal_timing.startsWith("{")) {
+          try {
+            setMealTimingsObj(JSON.parse(med.meal_timing));
+          } catch (e) {
+            setMealTimingsObj({});
+          }
+        } else {
+          // Legacy format fallback
+          const legacyVal = med.meal_timing;
+          const initialMap: Record<string, string> = {};
+          if (legacyVal.includes("breakfast")) initialMap.morning = legacyVal;
+          else if (legacyVal.includes("lunch")) initialMap.afternoon = legacyVal;
+          else if (legacyVal.includes("dinner")) initialMap.night = legacyVal;
+          setMealTimingsObj(initialMap);
+        }
+      } else {
+        setMealTimingsObj({});
+      }
     } else {
       setName(""); setType("tablet"); setDuration(""); setTags([]); setTimeMap({});
       setMemberId(prefillMember ?? "self");
-      setMealTiming("none");
+      setMealTimingsObj({});
     }
   }, [med, open, prefillMember]);
 
-  const toggleTag = (tag: string) => setTags((cur) => cur.includes(tag) ? cur.filter((x) => x !== tag) : [...cur, tag]);
+  const toggleTag = (tag: string) => {
+    setTags((cur) => {
+      const active = cur.includes(tag);
+      if (active) {
+        // clean up timings
+        const nextTimings = { ...mealTimingsObj };
+        delete nextTimings[tag];
+        setMealTimingsObj(nextTimings);
+        return cur.filter((x) => x !== tag);
+      } else {
+        return [...cur, tag];
+      }
+    });
+  };
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,12 +235,19 @@ function MedicineDialog({ open, onOpenChange, med, members, prefillMember, onSav
     setBusy(true);
     const reminder_times = tags.map((tg) => timeMap[tg]).filter(Boolean);
     const ownerColor = memberId === "self" ? SELF_COLOR : members.find((x) => x.id === memberId)?.color ?? SELF_COLOR;
+    
+    // Filter meal timings object to only active tags
+    const activeMealTimings: Record<string, string> = {};
+    tags.forEach((tg) => {
+      if (mealTimingsObj[tg]) activeMealTimings[tg] = mealTimingsObj[tg];
+    });
+
     const payload = {
       user_id: user.id, name, medicine_type: type, tags, reminder_times,
       pill_color: ownerColor, notes: null,
       duration_days: duration ? Number(duration) : null,
       member_id: memberId === "self" ? null : memberId,
-      meal_timing: mealTiming === "none" ? null : mealTiming,
+      meal_timing: Object.keys(activeMealTimings).length > 0 ? JSON.stringify(activeMealTimings) : null,
     };
     const { error } = med
       ? await supabase.from("medicines").update(payload).eq("id", med.id)
@@ -250,16 +309,6 @@ function MedicineDialog({ open, onOpenChange, med, members, prefillMember, onSav
           </div>
 
           <div>
-            <Label>{t("med.mealTiming")}</Label>
-            <Select value={mealTiming} onValueChange={setMealTiming}>
-              <SelectTrigger className="mt-1.5 h-11 rounded-xl"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {MEAL_OPTIONS.map((opt) => <SelectItem key={opt} value={opt}>{t(`med.meal.${opt}`)}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
             <Label>{t("med.times")}</Label>
             <div className="mt-1.5 grid gap-2 grid-cols-3">
               {(["morning", "afternoon", "night"] as const).map((tg) => {
@@ -280,6 +329,43 @@ function MedicineDialog({ open, onOpenChange, med, members, prefillMember, onSav
               })}
             </div>
           </div>
+
+          {/* Conditional meal timing options per active tag */}
+          {tags.length > 0 && (
+            <div className="mt-4 space-y-2 border-t pt-4">
+              <Label className="text-sm font-semibold">{t("med.mealTiming")}</Label>
+              <div className="space-y-2.5">
+                {tags.map((tg) => {
+                  const options = tg === "morning"
+                    ? [{ val: "none", label: t("med.meal.none") }, { val: "before_breakfast", label: t("med.meal.before_breakfast") }, { val: "after_breakfast", label: t("med.meal.after_breakfast") }]
+                    : tg === "afternoon"
+                    ? [{ val: "none", label: t("med.meal.none") }, { val: "before_lunch", label: t("med.meal.before_lunch") }, { val: "after_lunch", label: t("med.meal.after_lunch") }]
+                    : [{ val: "none", label: t("med.meal.none") }, { val: "before_dinner", label: t("med.meal.before_dinner") }, { val: "after_dinner", label: t("med.meal.after_dinner") }];
+                  
+                  const currentVal = mealTimingsObj[tg] || "none";
+                  return (
+                    <div key={tg} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border border-border/60 bg-muted/20">
+                      <span className="text-xs font-bold uppercase text-muted-foreground">{t(`med.${tg}`)}</span>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {options.map((opt) => (
+                          <Button
+                            key={opt.val}
+                            type="button"
+                            variant={currentVal === opt.val ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setMealTimingsObj(prev => ({ ...prev, [tg]: opt.val }))}
+                            className="h-8 rounded-lg text-xs font-medium px-2.5"
+                          >
+                            {opt.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-2">
             <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={() => onOpenChange(false)}>{t("med.cancel")}</Button>

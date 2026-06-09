@@ -10,11 +10,12 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { PasswordInput } from "@/components/PasswordInput";
 import { toast } from "sonner";
+import { setLanguage } from "@/lib/i18n";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
 function Login() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const nav = useNavigate();
   const [email, setEmail] = useState("");
@@ -32,12 +33,32 @@ function Login() {
     else nav({ to: "/dashboard" });
   };
 
+  const handleLangChange = (code: string) => {
+    setLanguage(code);
+    setTimeout(() => window.dispatchEvent(new Event("languagechange")), 0);
+  };
+
   return (
     <AppShell>
       <div className="mx-auto max-w-md py-8">
         <Card className="rounded-2xl p-8 shadow-[var(--shadow-soft)]">
           <h1 className="text-2xl font-bold">{t("auth.loginTitle")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("auth.loginSub")}</p>
+          
+          <div className="flex gap-2 mt-4 justify-start">
+            {[{ code: "en", label: "English" }, { code: "hi", label: "हिंदी" }, { code: "gu", label: "ગુજરાતી" }].map((l) => (
+              <Button
+                key={l.code}
+                type="button"
+                variant={i18n.language === l.code ? "default" : "outline"}
+                onClick={() => handleLangChange(l.code)}
+                className="h-8 rounded-full text-xs font-semibold px-3"
+              >
+                {l.label}
+              </Button>
+            ))}
+          </div>
+
           <form onSubmit={submit} className="mt-6 space-y-4">
             <div>
               <Label htmlFor="email">{t("auth.email")}</Label>

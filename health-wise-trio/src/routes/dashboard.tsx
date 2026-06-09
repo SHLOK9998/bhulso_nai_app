@@ -26,6 +26,22 @@ type Member = { id: string; name: string; color: string | null };
 
 const SELF_COLOR = "#0EA5A4";
 
+export function getMealTimingForBucket(mealTimingStr: string | null, bucket: "morning" | "afternoon" | "evening"): string | null {
+  if (!mealTimingStr || mealTimingStr === "none") return null;
+  try {
+    if (mealTimingStr.startsWith("{")) {
+      const obj = JSON.parse(mealTimingStr);
+      const key = bucket === "evening" ? "night" : bucket;
+      const val = obj[key];
+      return val && val !== "none" ? val : null;
+    }
+  } catch (e) {}
+  if (bucket === "morning" && (mealTimingStr.includes("breakfast") || mealTimingStr === "anytime")) return mealTimingStr;
+  if (bucket === "afternoon" && (mealTimingStr.includes("lunch") || mealTimingStr === "anytime")) return mealTimingStr;
+  if (bucket === "evening" && (mealTimingStr.includes("dinner") || mealTimingStr === "anytime")) return mealTimingStr;
+  return null;
+}
+
 function bucketOf(time: string): "morning" | "afternoon" | "evening" {
   const h = Number(time.split(":")[0] ?? 0);
   if (h < 12) return "morning";
@@ -271,7 +287,7 @@ function Dashboard() {
                           const col = colorFor(med);
                           const owner = med.member_id ? members.find((x) => x.id === med.member_id) : null;
                           return (
-                            <li key={`${med.id}-${time}`} className="rounded-lg bg-card p-2.5 border border-border/40">
+                            <li key={`${med.id}-${time}`} className="rounded-lg p-2.5 border transition-all" style={{ backgroundColor: col + "12", borderColor: col + "25" }}>
                               <div className="flex items-start gap-2">
                                 <div className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg" style={{ background: col + "22", color: col }}>
                                   <Pill className="h-4 w-4" />
@@ -286,8 +302,8 @@ function Dashboard() {
                                       </span>
                                     )}
                                   </div>
-                                  {med.meal_timing && med.meal_timing !== "none" && (
-                                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground/80 mt-0.5">{t(`med.meal.${med.meal_timing}`)}</div>
+                                  {getMealTimingForBucket(med.meal_timing, bk) && (
+                                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground/80 mt-0.5">{t(`med.meal.${getMealTimingForBucket(med.meal_timing, bk)}`)}</div>
                                   )}
                                 </div>
                               </div>

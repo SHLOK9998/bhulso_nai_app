@@ -174,7 +174,7 @@ function MemberModal({ visible, onClose, member, onSaved }: {
 
         <View style={[styles.row, { gap: 12, marginTop: 24 }]}>
           <OutlineButton title={t('med.cancel')} onPress={onClose} style={{ flex: 1 }} />
-          <GradientButton title={busy ? '...' : t('med.save')} onPress={save} disabled={busy} style={{ flex: 1 }} />
+          <GradientButton title={busy ? '...' : t('med.save')} onPress={save} loading={busy} style={{ flex: 1 }} />
         </View>
       </ScrollView>
     </Modal>

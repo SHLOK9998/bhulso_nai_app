@@ -15,6 +15,26 @@ type AIResp = {
 
 const SUPABASE_URL = 'https://qnscenrjpufcuwioglrc.supabase.co';
 
+const SYS = `You are HealthMate AI, a careful trilingual (English/Hindi/Gujarati) wellness companion.
+You NEVER diagnose. You provide safe, general self-care guidance and clearly flag when professional care is needed.
+Detect the user's input language and respond ENTIRELY in that same language (en, hi, or gu).
+Return STRICT JSON only — no markdown, no prose around it.
+
+JSON shape:
+{
+  "language": "en"|"hi"|"gu",
+  "summary": string,                 // 1 short sentence rephrasing what the user said
+  "causes": string[],                // 2-4 plain possible causes
+  "suggestions": string[],           // 2-5 safe self-care actions (rest, hydration, OTC categories)
+  "ayurveda": string[],              // 2-4 traditional Indian home remedies (e.g., tulsi tea, haldi milk, ginger, ajwain)
+  "urgency": "low"|"medium"|"high"   // high = seek urgent care
+}
+
+Rules:
+- Never name prescription drugs or doses.
+- If symptoms suggest emergency (chest pain, stroke signs, heavy bleeding, breathing trouble), set urgency "high" and tell them to seek immediate care.
+- Keep each list item short (max ~12 words).`;
+
 export default function SymptomsScreen() {
   const { t, i18n } = useTranslation();
   const [input, setInput] = useState('');
@@ -26,19 +46,40 @@ export default function SymptomsScreen() {
     setBusy(true);
     setResp(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/analyze-symptoms`, {
+      const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY ;
+      const model = process.env.EXPO_PUBLIC_GEMINI_MODEL || "gemini-2.5-flash";
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+      const res = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token ?? ''}`,
-        },
-        body: JSON.stringify({ input, language: i18n.language }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: `${SYS}\n\nUser input: ${input}\nPreferred Language: ${i18n.language}` }]
+            }
+          ],
+          generationConfig: {
+            responseMimeType: 'application/json'
+          }
+        })
       });
-      const data: AIResp = await res.json();
-      if (!res.ok || data.error) Alert.alert('Error', data.error ?? 'Failed');
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Gemini mobile screen error:", errorText);
+        throw new Error("Gemini API call failed");
+      }
+
+      const rawData = await res.json();
+      const textResponse = rawData.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+      const data: AIResp = JSON.parse(textResponse);
+
+      if (data.error) Alert.alert('Error', data.error ?? 'Failed');
       else setResp(data);
-    } catch {
+    } catch (e) {
+      console.error("Symptoms send error:", e);
       Alert.alert('Error', t('common.error'));
     } finally {
       setBusy(false);

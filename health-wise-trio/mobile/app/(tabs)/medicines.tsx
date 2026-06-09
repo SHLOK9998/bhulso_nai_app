@@ -24,6 +24,27 @@ function colorFor(med: Med, members: Member[]) {
   return med.pill_color ?? SELF_COLOR;
 }
 
+export function formatMealTiming(mealTimingStr: string | null, t: any): string {
+  if (!mealTimingStr || mealTimingStr === "none") return "";
+  try {
+    if (mealTimingStr.startsWith("{")) {
+      const obj = JSON.parse(mealTimingStr);
+      const parts: string[] = [];
+      if (obj.morning && obj.morning !== "none") {
+        parts.push(`${t("med.morning")}: ${t(`med.meal.${obj.morning}`)}`);
+      }
+      if (obj.afternoon && obj.afternoon !== "none") {
+        parts.push(`${t("med.afternoon")}: ${t(`med.meal.${obj.afternoon}`)}`);
+      }
+      if (obj.night && obj.night !== "none") {
+        parts.push(`${t("med.night")}: ${t(`med.meal.${obj.night}`)}`);
+      }
+      return parts.join(", ");
+    }
+  } catch (e) {}
+  return t(`med.meal.${mealTimingStr}`, mealTimingStr);
+}
+
 export default function MedicinesScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -80,7 +101,7 @@ export default function MedicinesScreen() {
             const col = colorFor(m, members);
             const owner = m.member_id ? members.find((x) => x.id === m.member_id) : null;
             return (
-              <Card key={m.id} style={styles.medCard}>
+              <Card key={m.id} style={[styles.medCard, { backgroundColor: col + '12', elevation: 0, shadowOpacity: 0 }]}>
                 <View style={styles.medTop}>
                   <View style={[styles.pillIcon, { backgroundColor: col + '22' }]}>
                     <Ionicons name="medical" size={22} color={col} />
@@ -98,7 +119,7 @@ export default function MedicinesScreen() {
                 </View>
                 <View style={styles.badges}>
                   {m.tags.map((tag) => <Badge key={tag} label={t(`med.${tag}`, tag)} />)}
-                  {m.meal_timing && m.meal_timing !== 'none' && <Badge label={t(`med.meal.${m.meal_timing}`)} />}
+                  {m.meal_timing && m.meal_timing !== 'none' && <Badge label={formatMealTiming(m.meal_timing, t)} />}
                   {m.duration_days != null
                     ? <Badge label={t('med.days', { count: m.duration_days })} />
                     : <Badge label={t('med.lifetime')} />}
@@ -137,7 +158,7 @@ function MedicineModal({ visible, onClose, med, members, onSaved }: {
   const [tags, setTags] = useState<string[]>([]);
   const [timeMap, setTimeMap] = useState<Record<string, string>>({});
   const [memberId, setMemberId] = useState('self');
-  const [mealTiming, setMealTiming] = useState('none');
+  const [mealTimingsObj, setMealTimingsObj] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -148,25 +169,64 @@ function MedicineModal({ visible, onClose, med, members, onSaved }: {
       med.tags.forEach((tag, i) => { if (med.reminder_times[i]) newMap[tag] = med.reminder_times[i]; });
       setTimeMap(newMap);
       setMemberId(med.member_id ?? 'self');
-      setMealTiming(med.meal_timing ?? 'none');
+      
+      if (med.meal_timing) {
+        if (med.meal_timing.startsWith('{')) {
+          try {
+            setMealTimingsObj(JSON.parse(med.meal_timing));
+          } catch (e) {
+            setMealTimingsObj({});
+          }
+        } else {
+          // Legacy format fallback
+          const legacyVal = med.meal_timing;
+          const initialMap: Record<string, string> = {};
+          if (legacyVal.includes('breakfast')) initialMap.morning = legacyVal;
+          else if (legacyVal.includes('lunch')) initialMap.afternoon = legacyVal;
+          else if (legacyVal.includes('dinner')) initialMap.night = legacyVal;
+          setMealTimingsObj(initialMap);
+        }
+      } else {
+        setMealTimingsObj({});
+      }
     } else {
-      setName(''); setType('tablet'); setDuration(''); setTags([]); setTimeMap({}); setMemberId('self'); setMealTiming('none');
+      setName(''); setType('tablet'); setDuration(''); setTags([]); setTimeMap({}); setMemberId('self');
+      setMealTimingsObj({});
     }
   }, [med, visible]);
 
-  const toggleTag = (tag: string) => setTags((cur) => cur.includes(tag) ? cur.filter((x) => x !== tag) : [...cur, tag]);
+  const toggleTag = (tag: string) => {
+    setTags((cur) => {
+      const active = cur.includes(tag);
+      if (active) {
+        const nextTimings = { ...mealTimingsObj };
+        delete nextTimings[tag];
+        setMealTimingsObj(nextTimings);
+        return cur.filter((x) => x !== tag);
+      } else {
+        return [...cur, tag];
+      }
+    });
+  };
 
   const save = async () => {
     if (!user || !name.trim()) return Alert.alert('Error', 'Medicine name is required');
     setBusy(true);
     const reminder_times = tags.map((tg) => timeMap[tg]).filter(Boolean);
     const ownerColor = memberId === 'self' ? SELF_COLOR : members.find((x) => x.id === memberId)?.color ?? SELF_COLOR;
+    
+    // Filter meal timings object to only active tags
+    const activeMealTimings: Record<string, string> = {};
+    tags.forEach((tg) => {
+      if (mealTimingsObj[tg]) activeMealTimings[tg] = mealTimingsObj[tg];
+    });
+
     const payload = {
       user_id: user.id, name: name.trim(), medicine_type: type, tags, reminder_times,
       pill_color: ownerColor, notes: null,
       duration_days: duration ? Number(duration) : null,
       member_id: memberId === 'self' ? null : memberId,
-      meal_timing: mealTiming === 'none' ? null : mealTiming,
+      meal_timing: Object.keys(activeMealTimings).length > 0 ? JSON.stringify(activeMealTimings) : null,
     };
     const { error } = med
       ? await supabase.from('medicines').update(payload).eq('id', med.id)
@@ -222,18 +282,6 @@ function MedicineModal({ visible, onClose, med, members, onSaved }: {
           </View>
         </View>
 
-        <Text style={[styles.label, { marginTop: 14 }]}>{t('med.mealTiming')}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {MEAL_OPTIONS.map((opt) => (
-              <TouchableOpacity key={opt} onPress={() => setMealTiming(opt)}
-                style={[styles.chip, mealTiming === opt && styles.chipActive]}>
-                <Text style={[styles.chipText, mealTiming === opt && styles.chipTextActive]}>{t(`med.meal.${opt}`)}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
-
         <Text style={[styles.label, { marginTop: 14 }]}>{t('med.times')}</Text>
         <View style={styles.timeTagsRow}>
           {TIME_TAGS.map((tg) => {
@@ -255,9 +303,40 @@ function MedicineModal({ visible, onClose, med, members, onSaved }: {
           })}
         </View>
 
+        {/* Conditional meal timing options per active tag */}
+        {tags.length > 0 && (
+          <View style={{ marginTop: 14 }}>
+            <Text style={styles.label}>{t('med.mealTiming')}</Text>
+            <View style={{ gap: 8 }}>
+              {tags.map((tg) => {
+                const options = tg === 'morning'
+                  ? [{ val: 'none', label: t('med.meal.none') }, { val: 'before_breakfast', label: t('med.meal.before_breakfast') }, { val: 'after_breakfast', label: t('med.meal.after_breakfast') }]
+                  : tg === 'afternoon'
+                  ? [{ val: 'none', label: t('med.meal.none') }, { val: 'before_lunch', label: t('med.meal.before_lunch') }, { val: 'after_lunch', label: t('med.meal.after_lunch') }]
+                  : [{ val: 'none', label: t('med.meal.none') }, { val: 'before_dinner', label: t('med.meal.before_dinner') }, { val: 'after_dinner', label: t('med.meal.after_dinner') }];
+                
+                const currentVal = mealTimingsObj[tg] || 'none';
+                return (
+                  <View key={tg} style={{ padding: 10, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.card }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', textTransform: 'uppercase', color: Colors.mutedForeground, marginBottom: 6 }}>{t(`med.${tg}`)}</Text>
+                    <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                      {options.map((opt) => (
+                        <TouchableOpacity key={opt.val} onPress={() => setMealTimingsObj(prev => ({ ...prev, [tg]: opt.val }))}
+                          style={[styles.chip, { paddingVertical: 5, paddingHorizontal: 10 }, currentVal === opt.val && styles.chipActive]}>
+                          <Text style={[styles.chipText, { fontSize: 12 }, currentVal === opt.val && styles.chipTextActive]}>{opt.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         <View style={[styles.row, { gap: 12, marginTop: 24 }]}>
           <OutlineButton title={t('med.cancel')} onPress={onClose} style={{ flex: 1 }} />
-          <GradientButton title={busy ? '...' : t('med.save')} onPress={save} disabled={busy} style={{ flex: 1 }} />
+          <GradientButton title={busy ? '...' : t('med.save')} onPress={save} loading={busy} style={{ flex: 1 }} />
         </View>
       </ScrollView>
     </Modal>

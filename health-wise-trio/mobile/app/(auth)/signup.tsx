@@ -11,11 +11,11 @@ import { Colors } from '@/lib/theme';
 const LANGS = [{ value: 'en', label: 'English' }, { value: 'hi', label: 'हिंदी' }, { value: 'gu', label: 'ગુજરાતી' }];
 
 export default function SignupScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [language, setLang] = useState('en');
+  const [language, setLang] = useState(i18n.language || 'en');
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -64,7 +64,10 @@ export default function SignupScreen() {
             <Text style={[styles.label, { marginTop: 14 }]}>{t('auth.language')}</Text>
             <View style={styles.langRow}>
               {LANGS.map((l) => (
-                <TouchableOpacity key={l.value} onPress={() => setLang(l.value)}
+                <TouchableOpacity key={l.value} onPress={() => {
+                  setLang(l.value);
+                  setLanguage(l.value);
+                }}
                   style={[styles.langChip, language === l.value && styles.langChipActive]}>
                   <Text style={[styles.langChipText, language === l.value && styles.langChipTextActive]}>{l.label}</Text>
                 </TouchableOpacity>

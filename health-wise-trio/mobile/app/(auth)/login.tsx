@@ -6,13 +6,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { Colors } from '@/lib/theme';
+import { setLanguage } from '@/lib/i18n';
+
+const LANGS = [{ value: 'en', label: 'English' }, { value: 'hi', label: 'हिंदी' }, { value: 'gu', label: 'ગુજરાતી' }];
 
 export default function LoginScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const currentLang = i18n.language || 'en';
 
   const submit = async () => {
     if (!email || !password) return;
@@ -37,6 +42,16 @@ export default function LoginScreen() {
         <View style={styles.card}>
           <Text style={styles.title}>{t('auth.loginTitle')}</Text>
           <Text style={styles.sub}>{t('auth.loginSub')}</Text>
+
+          {/* Language Switcher */}
+          <View style={styles.langRow}>
+            {LANGS.map((l) => (
+              <TouchableOpacity key={l.value} onPress={() => setLanguage(l.value)}
+                style={[styles.langChip, currentLang === l.value && styles.langChipActive]}>
+                <Text style={[styles.langChipText, currentLang === l.value && styles.langChipTextActive]}>{l.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           <View style={styles.form}>
             <Text style={styles.label}>{t('auth.email')}</Text>
@@ -93,7 +108,12 @@ const styles = StyleSheet.create({
   card: { backgroundColor: Colors.card, borderRadius: 22, padding: 24, shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 3 },
   title: { fontSize: 24, fontWeight: '800', color: Colors.foreground, letterSpacing: -0.5 },
   sub: { fontSize: 14, color: Colors.mutedForeground, marginTop: 4 },
-  form: { marginTop: 20 },
+  langRow: { flexDirection: 'row', gap: 10, marginTop: 14, marginBottom: 6 },
+  langChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.border },
+  langChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '15' },
+  langChipText: { color: Colors.foreground, fontWeight: '600', fontSize: 13 },
+  langChipTextActive: { color: Colors.primary },
+  form: { marginTop: 10 },
   label: { fontSize: 14, fontWeight: '600', color: Colors.foreground, marginBottom: 6 },
   input: { height: 50, borderRadius: 14, borderWidth: 1.5, borderColor: Colors.border, paddingHorizontal: 14, fontSize: 15, color: Colors.foreground, backgroundColor: Colors.background, marginBottom: 4 },
   pwWrap: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.background, paddingRight: 12 },

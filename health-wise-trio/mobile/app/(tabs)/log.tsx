@@ -139,7 +139,7 @@ function TodayTab() {
           placeholder={t('log.symptomsPh')} placeholderTextColor={Colors.mutedForeground} />
       </Card>
 
-      <GradientButton title={busy ? '...' : t('log.save')} onPress={save} disabled={busy} style={{ marginTop: 16, borderRadius: 16 }} />
+      <GradientButton title={busy ? '...' : t('log.save')} onPress={save} loading={busy} style={{ marginTop: 16, borderRadius: 16 }} />
     </ScrollView>
   );
 }

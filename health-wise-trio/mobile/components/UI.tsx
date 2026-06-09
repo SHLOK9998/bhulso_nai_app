@@ -1,20 +1,20 @@
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, type ViewStyle, type TextStyle } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, type ViewStyle, type TextStyle, type StyleProp } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Shadows } from '@/lib/theme';
 
 // Card
-export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+export function Card({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
 // GradientButton
 export function GradientButton({
-  onPress, title, disabled, style, textStyle,
-}: { onPress: () => void; title: string; disabled?: boolean; style?: ViewStyle; textStyle?: TextStyle }) {
+  onPress, title, disabled, loading, style, textStyle,
+}: { onPress: () => void; title: string; disabled?: boolean; loading?: boolean; style?: StyleProp<ViewStyle>; textStyle?: StyleProp<TextStyle> }) {
   return (
-    <TouchableOpacity onPress={onPress} disabled={disabled} activeOpacity={0.8} style={[{ borderRadius: 14, overflow: 'hidden' }, style]}>
+    <TouchableOpacity onPress={onPress} disabled={disabled || loading} activeOpacity={0.8} style={[{ borderRadius: 14, overflow: 'hidden' }, style, (disabled || loading) && { opacity: 0.6 }]}>
       <LinearGradient colors={['#0EA5A4', '#3ABFBE']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gradientBtn}>
-        {disabled ? (
+        {loading ? (
           <ActivityIndicator color="#fff" />
         ) : (
           <Text style={[styles.gradientBtnText, textStyle]}>{title}</Text>
@@ -27,7 +27,7 @@ export function GradientButton({
 // OutlineButton
 export function OutlineButton({
   onPress, title, style, textStyle, destructive,
-}: { onPress: () => void; title: string; style?: ViewStyle; textStyle?: TextStyle; destructive?: boolean }) {
+}: { onPress: () => void; title: string; style?: StyleProp<ViewStyle>; textStyle?: StyleProp<TextStyle>; destructive?: boolean }) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={[styles.outlineBtn, style]}>
       <Text style={[styles.outlineBtnText, destructive && { color: Colors.destructive }, textStyle]}>{title}</Text>

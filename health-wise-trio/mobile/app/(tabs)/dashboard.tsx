@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,6 +17,22 @@ type Member = { id: string; name: string; color: string | null };
 
 const SELF_COLOR = '#0EA5A4';
 
+export function getMealTimingForBucket(mealTimingStr: string | null, bucket: 'morning' | 'afternoon' | 'evening'): string | null {
+  if (!mealTimingStr || mealTimingStr === "none") return null;
+  try {
+    if (mealTimingStr.startsWith("{")) {
+      const obj = JSON.parse(mealTimingStr);
+      const key = bucket === "evening" ? "night" : bucket;
+      const val = obj[key];
+      return val && val !== "none" ? val : null;
+    }
+  } catch (e) {}
+  if (bucket === "morning" && (mealTimingStr.includes("breakfast") || mealTimingStr === "anytime")) return mealTimingStr;
+  if (bucket === "afternoon" && (mealTimingStr.includes("lunch") || mealTimingStr === "anytime")) return mealTimingStr;
+  if (bucket === "evening" && (mealTimingStr.includes("dinner") || mealTimingStr === "anytime")) return mealTimingStr;
+  return null;
+}
+
 function bucketOf(time: string): 'morning' | 'afternoon' | 'evening' {
   const h = Number(time.split(':')[0] ?? 0);
   if (h < 12) return 'morning';
@@ -25,7 +41,7 @@ function bucketOf(time: string): 'morning' | 'afternoon' | 'evening' {
 }
 
 export default function DashboardScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const [meds, setMeds] = useState<Med[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -33,6 +49,52 @@ export default function DashboardScreen() {
   const [name, setName] = useState('');
   const [todayTaken, setTodayTaken] = useState<Record<string, boolean>>({});
   const [refreshing, setRefreshing] = useState(false);
+  const [advice, setAdvice] = useState<string | null>(null);
+  const [adviceLoading, setAdviceLoading] = useState(false);
+
+  const loadAdvice = async () => {
+    if (!user) return;
+    setAdviceLoading(true);
+    try {
+      const since = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+      const [{ data: profile }, { data: logs }, { data: medsData }] = await Promise.all([
+        supabase.from('profiles').select('name,age,gender,conditions,goals,wake_time,sleep_time,language').eq('id', user.id).maybeSingle(),
+        supabase.from('health_logs').select('log_date,mood,sleep_hours,water_glasses,symptoms').eq('user_id', user.id).gte('log_date', since).order('log_date', { ascending: false }),
+        supabase.from('medicines').select('name,reminder_times,tags').eq('user_id', user.id).eq('active', true),
+      ]);
+
+      const lang = profile?.language || i18n.language || 'en';
+      const langName = lang === 'hi' ? 'Hindi' : lang === 'gu' ? 'Gujarati' : 'English';
+      const prompt = `You are a friendly health coach. Based on the user's recent data, give ONE short personalized tip (max 3 sentences) in ${langName}. Be warm, specific, and reference at least one concrete data point. No medical diagnoses.\n\nProfile: ${JSON.stringify(profile)}\nActive medicines: ${JSON.stringify(medsData)}\nLast 14 days of logs: ${JSON.stringify(logs)}`;
+
+      const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY ;
+      const model = process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.5-flash';
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }]
+            }
+          ]
+        })
+      });
+
+      if (!res.ok) throw new Error('Failed to get advice');
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? null;
+      setAdvice(text);
+    } catch (e) {
+      console.error("Dashboard advice error:", e);
+      setAdvice(null);
+    } finally {
+      setAdviceLoading(false);
+    }
+  };
 
   const load = async () => {
     if (!user) return;
@@ -54,9 +116,9 @@ export default function DashboardScreen() {
     setTodayTaken(map);
   };
 
-  useEffect(() => { load(); }, [user]);
+  useEffect(() => { load(); loadAdvice(); }, [user]);
 
-  const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
+  const onRefresh = async () => { setRefreshing(true); await Promise.all([load(), loadAdvice()]); setRefreshing(false); };
 
   const setTakenStatus = async (medId: string, time: string, taken: boolean) => {
     if (!user) return;
@@ -141,6 +203,26 @@ export default function DashboardScreen() {
         </View>
       </Card>
 
+      {/* AI Health Insights */}
+      <Card style={{ margin: 16, marginTop: 14, marginBottom: 0 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="sparkles" size={18} color={Colors.primary} />
+            <Text style={{ fontSize: 15, fontWeight: '700', color: Colors.foreground }}>{t('dashboard.insightsTitle')}</Text>
+          </View>
+          <TouchableOpacity onPress={loadAdvice} disabled={adviceLoading} style={{ padding: 4 }}>
+            {adviceLoading ? (
+              <ActivityIndicator size="small" color={Colors.mutedForeground} />
+            ) : (
+              <Ionicons name="refresh" size={18} color={Colors.mutedForeground} />
+            )}
+          </TouchableOpacity>
+        </View>
+        <Text style={{ fontSize: 13, color: Colors.mutedForeground, marginTop: 8, lineHeight: 18 }}>
+          {adviceLoading ? t('dashboard.insightsLoading') : (advice ?? t('dashboard.insightsEmpty'))}
+        </Text>
+      </Card>
+
       {/* Today's Plan */}
       <Card style={{ marginTop: 14 }}>
         <View style={styles.planHeader}>
@@ -171,15 +253,15 @@ export default function DashboardScreen() {
                   const col = colorFor(med);
                   const owner = med.member_id ? members.find((x) => x.id === med.member_id) : null;
                   return (
-                    <View key={`${med.id}-${time}`} style={styles.medRow}>
+                    <View key={`${med.id}-${time}`} style={[styles.medRow, { backgroundColor: col + '10', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 6, borderBottomWidth: 0 }]}>
                       <View style={[styles.pillIcon, { backgroundColor: col + '22' }]}>
                         <Ionicons name="medical" size={18} color={col} />
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.medName}>{med.name}</Text>
                         <Text style={styles.medSub}>{time}{owner ? ` · ${owner.name}` : ''}</Text>
-                        {med.meal_timing && med.meal_timing !== 'none' && (
-                          <Text style={styles.mealLabel}>{t(`med.meal.${med.meal_timing}`)}</Text>
+                        {getMealTimingForBucket(med.meal_timing, bk) && (
+                          <Text style={styles.mealLabel}>{t(`med.meal.${getMealTimingForBucket(med.meal_timing, bk)}`)}</Text>
                         )}
                       </View>
                       <TouchableOpacity onPress={() => setTakenStatus(med.id, time, !taken)} style={styles.takenBtn}>

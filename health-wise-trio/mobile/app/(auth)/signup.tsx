@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Alert, Modal } from 'react-native';
 import { Link, router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +18,7 @@ export default function SignupScreen() {
   const [language, setLang] = useState(i18n.language || 'en');
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [langModalVisible, setLangModalVisible] = useState(false);
 
   const submit = async () => {
     if (!name || !email || !password) return Alert.alert('Error', 'Please fill all fields');
@@ -35,6 +36,11 @@ export default function SignupScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {/* Language Settings Button */}
+        <TouchableOpacity style={styles.langSettingsBtn} onPress={() => setLangModalVisible(true)} activeOpacity={0.7}>
+          <Ionicons name="globe-outline" size={22} color={Colors.mutedForeground} />
+        </TouchableOpacity>
+
         <View style={styles.logoWrap}>
           <LinearGradient colors={['#0EA5A4', '#3ABFBE']} style={styles.logoCircle}>
             <Ionicons name="heart" size={28} color="#fff" />
@@ -61,19 +67,6 @@ export default function SignupScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={[styles.label, { marginTop: 14 }]}>{t('auth.language')}</Text>
-            <View style={styles.langRow}>
-              {LANGS.map((l) => (
-                <TouchableOpacity key={l.value} onPress={() => {
-                  setLang(l.value);
-                  setLanguage(l.value);
-                }}
-                  style={[styles.langChip, language === l.value && styles.langChipActive]}>
-                  <Text style={[styles.langChipText, language === l.value && styles.langChipTextActive]}>{l.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
             <TouchableOpacity onPress={submit} disabled={busy} activeOpacity={0.8} style={{ marginTop: 20, borderRadius: 14, overflow: 'hidden' }}>
               <LinearGradient colors={['#0EA5A4', '#3ABFBE']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.submitBtn}>
                 <Text style={styles.submitText}>{busy ? '...' : t('auth.submitSignup')}</Text>
@@ -89,6 +82,30 @@ export default function SignupScreen() {
           </Link>
         </View>
       </ScrollView>
+
+      {/* Language Selection Modal */}
+      <Modal visible={langModalVisible} transparent animationType="slide" onRequestClose={() => setLangModalVisible(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setLangModalVisible(false)}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('auth.selectLanguage', 'Select Language')}</Text>
+              <TouchableOpacity onPress={() => setLangModalVisible(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={24} color={Colors.foreground} />
+              </TouchableOpacity>
+            </View>
+            {LANGS.map((l) => (
+              <TouchableOpacity key={l.value} onPress={() => {
+                setLanguage(l.value);
+                setLang(l.value);
+                setLangModalVisible(false);
+              }} style={[styles.langOption, language === l.value && styles.langOptionActive]}>
+                <Text style={[styles.langOptionText, language === l.value && styles.langOptionTextActive]}>{l.label}</Text>
+                {language === l.value && <Ionicons name="checkmark" size={20} color={Colors.primary} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -107,11 +124,66 @@ const styles = StyleSheet.create({
   input: { height: 50, borderRadius: 14, borderWidth: 1.5, borderColor: Colors.border, paddingHorizontal: 14, fontSize: 15, color: Colors.foreground, backgroundColor: Colors.background, marginBottom: 4 },
   pwWrap: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.background, paddingRight: 12 },
   eyeBtn: { padding: 4 },
-  langRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  langChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border },
-  langChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '15' },
-  langChipText: { color: Colors.foreground, fontWeight: '600' },
-  langChipTextActive: { color: Colors.primary },
+  langSettingsBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 30,
+    right: 24,
+    zIndex: 10,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.card,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.foreground,
+  },
+  langOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: Colors.background,
+  },
+  langOptionActive: {
+    backgroundColor: Colors.primary + '10',
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  langOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.foreground,
+  },
+  langOptionTextActive: {
+    color: Colors.primary,
+  },
   submitBtn: { height: 50, alignItems: 'center', justifyContent: 'center' },
   submitText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },

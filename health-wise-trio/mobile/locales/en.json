@@ -59,6 +59,7 @@
     "showPassword": "Show password",
     "hidePassword": "Hide password",
     "language": "Preferred language",
+    "selectLanguage": "Select Language",
     "submitLogin": "Sign in",
     "submitSignup": "Create account",
     "noAccount": "Don't have an account?",

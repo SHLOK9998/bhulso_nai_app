@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Animated,
+  PanResponder,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -56,6 +59,73 @@ export function FloatingChatbot() {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [messages, setMessages] = useState<Array<{ sender: 'user' | 'bot'; text: string; data?: AIResp }>>([]);
+
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+  
+  // Initial position bottom-right corner
+  const initialX = SCREEN_WIDTH - 76;
+  const initialY = SCREEN_HEIGHT - 56 - (Platform.OS === 'ios' ? 98 : 86);
+
+  const pan = useRef(new Animated.ValueXY({ x: initialX, y: initialY })).current;
+  const lastOffset = useRef({ x: initialX, y: initialY });
+
+  useEffect(() => {
+    const listenerId = pan.addListener((value) => {
+      lastOffset.current = value;
+    });
+    return () => {
+      pan.removeListener(listenerId);
+    };
+  }, []);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        // Trigger drag only if user moved more than 4 pixels in any direction
+        return Math.abs(gestureState.dx) > 4 || Math.abs(gestureState.dy) > 4;
+      },
+      onPanResponderGrant: () => {
+        pan.setOffset({
+          x: lastOffset.current.x,
+          y: lastOffset.current.y
+        });
+        pan.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event(
+        [null, { dx: pan.x, dy: pan.y }],
+        { useNativeDriver: false }
+      ),
+      onPanResponderRelease: () => {
+        pan.flattenOffset();
+        const fabWidth = 56;
+        const padding = 20;
+        const leftLimit = padding;
+        const rightLimit = SCREEN_WIDTH - fabWidth - padding;
+        
+        // Snapping logic: snap to left/right edge
+        const snapX = lastOffset.current.x < SCREEN_WIDTH / 2 ? leftLimit : rightLimit;
+        
+        // Vertical boundary limits
+        const headerHeight = Platform.OS === 'ios' ? 48 : 30;
+        const bottomLimit = SCREEN_HEIGHT - fabWidth - (Platform.OS === 'ios' ? 20 : 12);
+        let snapY = lastOffset.current.y;
+        
+        if (snapY < headerHeight) {
+          snapY = headerHeight;
+        } else if (snapY > bottomLimit) {
+          snapY = bottomLimit;
+        }
+
+        Animated.spring(pan, {
+          toValue: { x: snapX, y: snapY },
+          useNativeDriver: false,
+          friction: 7,
+          tension: 40
+        }).start();
+      }
+    })
+  ).current;
 
   const send = async () => {
     if (!input.trim() || busy) return;
@@ -125,20 +195,33 @@ export function FloatingChatbot() {
   return (
     <>
       {/* Floating Action Button */}
-      <TouchableOpacity
-        onPress={() => setModalOpen(true)}
-        activeOpacity={0.85}
-        style={styles.fab}
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={[
+          styles.fab,
+          {
+            transform: [
+              { translateX: pan.x },
+              { translateY: pan.y }
+            ]
+          }
+        ]}
       >
-        <LinearGradient
-          colors={['#0EA5A4', '#2563EB']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.fabGradient}
+        <TouchableOpacity
+          onPress={() => setModalOpen(true)}
+          activeOpacity={0.85}
+          style={styles.fabTouch}
         >
-          <Ionicons name="sparkles" size={24} color="#fff" />
-        </LinearGradient>
-      </TouchableOpacity>
+          <LinearGradient
+            colors={['#0EA5A4', '#2563EB']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.fabGradient}
+          >
+            <Ionicons name="sparkles" size={24} color="#fff" />
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
 
       {/* Chat Dialog Modal */}
       <Modal
@@ -331,8 +414,8 @@ export function FloatingChatbot() {
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 98 : 86,
-    right: 20,
+    left: 0,
+    top: 0,
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -342,6 +425,11 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 6,
     zIndex: 999,
+  },
+  fabTouch: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
   },
   fabGradient: {
     width: '100%',

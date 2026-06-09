@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,7 +26,7 @@ export function getMealTimingForBucket(mealTimingStr: string | null, bucket: 'mo
       const val = obj[key];
       return val && val !== "none" ? val : null;
     }
-  } catch (e) {}
+  } catch (e) { }
   if (bucket === "morning" && (mealTimingStr.includes("breakfast") || mealTimingStr === "anytime")) return mealTimingStr;
   if (bucket === "afternoon" && (mealTimingStr.includes("lunch") || mealTimingStr === "anytime")) return mealTimingStr;
   if (bucket === "evening" && (mealTimingStr.includes("dinner") || mealTimingStr === "anytime")) return mealTimingStr;
@@ -67,7 +67,7 @@ export default function DashboardScreen() {
       const langName = lang === 'hi' ? 'Hindi' : lang === 'gu' ? 'Gujarati' : 'English';
       const prompt = `You are a friendly health coach. Based on the user's recent data, give ONE short personalized tip (max 3 sentences) in ${langName}. Be warm, specific, and reference at least one concrete data point. No medical diagnoses.\n\nProfile: ${JSON.stringify(profile)}\nActive medicines: ${JSON.stringify(medsData)}\nLast 14 days of logs: ${JSON.stringify(logs)}`;
 
-      const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY ;
+      const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
       const model = process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.5-flash';
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -224,7 +224,7 @@ export default function DashboardScreen() {
       </Card>
 
       {/* Today's Plan */}
-      <Card style={{ marginTop: 14 }}>
+      <Card style={{ marginHorizontal: 16, marginTop: 14, marginBottom: 16 }}>
         <View style={styles.planHeader}>
           <Text style={styles.planTitle}>{t('dashboard.todayTitle')}</Text>
           <TouchableOpacity onPress={() => router.push('/(tabs)/medicines')}>
@@ -275,22 +275,6 @@ export default function DashboardScreen() {
           })
         )}
       </Card>
-
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        {[
-          { icon: 'medical-outline', label: t('dashboard.addMedicine'), color: Colors.primary, route: '/(tabs)/medicines' },
-          { icon: 'journal-outline', label: t('dashboard.logHealth'), color: Colors.secondary, route: '/(tabs)/log' },
-          { icon: 'sparkles-outline', label: t('dashboard.askAi'), color: Colors.warning, route: '/(tabs)/symptoms' },
-        ].map((item) => (
-          <TouchableOpacity key={item.label} style={styles.quickCard} onPress={() => router.push(item.route as any)} activeOpacity={0.8}>
-            <View style={[styles.quickIcon, { backgroundColor: item.color + '18' }]}>
-              <Ionicons name={item.icon as any} size={24} color={item.color} />
-            </View>
-            <Text style={styles.quickLabel}>{item.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
     </ScrollView>
   );
 }
@@ -298,7 +282,14 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { paddingBottom: 30 },
-  header: { paddingTop: 60, paddingBottom: 28, paddingHorizontal: 24, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
+  header: {
+    paddingTop: 24,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    marginTop: Platform.OS === 'ios' ? 60 : 40,
+    marginHorizontal: 16,
+    borderRadius: 18,
+  },
   greeting: { fontSize: 26, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
   date: { fontSize: 13, color: 'rgba(255,255,255,0.82)', marginTop: 4 },
   scoreCard: { margin: 16, marginBottom: 0 },
@@ -326,8 +317,4 @@ const styles = StyleSheet.create({
   medSub: { fontSize: 12, color: Colors.mutedForeground, marginTop: 1 },
   mealLabel: { fontSize: 10, color: Colors.mutedForeground, marginTop: 1, textTransform: 'uppercase', letterSpacing: 0.4 },
   takenBtn: { padding: 4 },
-  quickActions: { flexDirection: 'row', gap: 12, margin: 16, marginTop: 16 },
-  quickCard: { flex: 1, backgroundColor: Colors.card, borderRadius: 16, padding: 14, alignItems: 'center', gap: 8, shadowColor: '#0F172A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  quickIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  quickLabel: { fontSize: 11, fontWeight: '600', color: Colors.foreground, textAlign: 'center' },
 });

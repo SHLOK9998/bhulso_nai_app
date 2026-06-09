@@ -59,6 +59,7 @@
     "showPassword": "पासवर्ड दिखाएं",
     "hidePassword": "पासवर्ड छिपाएं",
     "language": "पसंदीदा भाषा",
+    "selectLanguage": "भाषा चुनें",
     "submitLogin": "साइन इन",
     "submitSignup": "खाता बनाएं",
     "noAccount": "खाता नहीं है?",

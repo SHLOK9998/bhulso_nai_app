@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { Colors } from '@/lib/theme';
 import { Card, GradientButton, OutlineButton, Badge } from '@/components/UI';
+import { SwipeLayout } from '@/components/SwipeLayout';
 
 type Member = { id: string; name: string; color: string | null; relation: string | null };
 type Med = {
@@ -82,7 +83,8 @@ export default function MedicinesScreen() {
   if (loading) return <View style={styles.center}><ActivityIndicator color={Colors.primary} size="large" /></View>;
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+    <SwipeLayout currentTab="medicines">
+      <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <View style={styles.header}>
         <Text style={styles.title}>{t('med.title')}</Text>
         <TouchableOpacity onPress={() => { setEditing(null); setModalOpen(true); }} style={styles.addBtn}>
@@ -142,7 +144,8 @@ export default function MedicinesScreen() {
         members={members}
         onSaved={() => { setModalOpen(false); load(); }}
       />
-    </View>
+      </View>
+    </SwipeLayout>
   );
 }
 

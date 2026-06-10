@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { Colors } from '@/lib/theme';
 import { Card, GradientButton, OutlineButton } from '@/components/UI';
+import { SwipeLayout } from '@/components/SwipeLayout';
 
 type Member = { id: string; name: string; relation: string | null; age: number | null; color: string | null };
 
@@ -40,7 +41,8 @@ export default function FamilyScreen() {
   if (loading) return <View style={styles.center}><ActivityIndicator color={Colors.primary} size="large" /></View>;
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+    <SwipeLayout currentTab="family">
+      <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>{t('family.title')}</Text>
@@ -107,7 +109,8 @@ export default function FamilyScreen() {
           </Card>
         </View>
       </Modal>
-    </View>
+      </View>
+    </SwipeLayout>
   );
 }
 

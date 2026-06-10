@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { Colors } from '@/lib/theme';
 import { Card, GradientButton, SectionTitle } from '@/components/UI';
+import { SwipeLayout } from '@/components/SwipeLayout';
 
 type Log = { log_date: string; mood: number | null; sleep_hours: number | null; water_glasses: number; symptoms: string[] };
 
@@ -25,7 +26,8 @@ export default function LogScreen() {
   const [tab, setTab] = useState<'today' | 'history'>('today');
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+    <SwipeLayout currentTab="log">
+      <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <View style={styles.header}>
         <Text style={styles.title}>{t('log.title')}</Text>
         <Text style={styles.sub}>{t('log.today')} · {new Date().toLocaleDateString()}</Text>
@@ -40,7 +42,8 @@ export default function LogScreen() {
         ))}
       </View>
       {tab === 'today' ? <TodayTab /> : <HistoryTab />}
-    </View>
+      </View>
+    </SwipeLayout>
   );
 }
 

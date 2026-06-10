@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +10,7 @@ import { calculateHealthScore } from '@/lib/healthScore';
 import { Colors } from '@/lib/theme';
 import { Card, SectionTitle } from '@/components/UI';
 import { HealthScoreRing } from '@/components/HealthScoreRing';
+import { SwipeLayout } from '@/components/SwipeLayout';
 
 type Med = { id: string; name: string; pill_color: string | null; reminder_times: string[]; tags: string[]; member_id: string | null; meal_timing: string | null };
 type LogRow = { water_glasses: number; sleep_hours: number | null; mood: number | null };
@@ -158,8 +159,8 @@ export default function DashboardScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}>
+    <SwipeLayout currentTab="dashboard">
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
 
       {/* Header */}
       <LinearGradient colors={['#0EA5A4', '#2563EB']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
@@ -276,6 +277,7 @@ export default function DashboardScreen() {
         )}
       </Card>
     </ScrollView>
+    </SwipeLayout>
   );
 }
 

@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { setLanguage } from '@/lib/i18n';
 import { Colors } from '@/lib/theme';
 import { Card, GradientButton, OutlineButton } from '@/components/UI';
+import { SwipeLayout } from '@/components/SwipeLayout';
 
 const LANGS = [{ value: 'en', label: 'English' }, { value: 'hi', label: 'हिंदी' }, { value: 'gu', label: 'ગુજરાતી' }];
 
@@ -68,7 +69,8 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SwipeLayout currentTab="settings">
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{t('settings.title')}</Text>
 
       {/* Profile */}
@@ -146,7 +148,8 @@ export default function SettingsScreen() {
       <Card style={{ marginTop: 14 }}>
         <OutlineButton title={t('settings.logout')} onPress={logout} destructive style={{ width: '100%' }} />
       </Card>
-    </ScrollView>
+      </ScrollView>
+    </SwipeLayout>
   );
 }
 

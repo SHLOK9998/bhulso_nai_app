@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
@@ -117,7 +117,15 @@ export default function DashboardScreen() {
     setTodayTaken(map);
   };
 
-  useEffect(() => { load(); loadAdvice(); }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [user])
+  );
+
+  useEffect(() => {
+    loadAdvice();
+  }, [user]);
 
   const onRefresh = async () => { setRefreshing(true); await Promise.all([load(), loadAdvice()]); setRefreshing(false); };
 

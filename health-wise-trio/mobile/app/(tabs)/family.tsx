@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
@@ -29,7 +29,11 @@ export default function FamilyScreen() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [user])
+  );
 
   const remove = (id: string) => {
     Alert.alert(t('family.deleteConfirm'), '', [

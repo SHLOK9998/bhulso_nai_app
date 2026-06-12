@@ -1,5 +1,6 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
@@ -56,17 +57,19 @@ function TodayTab() {
   const [sleep, setSleep] = useState(7);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      const today = new Date().toISOString().slice(0, 10);
-      const { data } = await supabase.from('health_logs').select('*').eq('user_id', user.id).eq('log_date', today).maybeSingle();
-      if (data) {
-        setMood(data.mood); setSymptoms((data.symptoms ?? []).join(', '));
-        setWater(data.water_glasses); setSleep(data.sleep_hours ?? 7);
-      }
-    })();
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      (async () => {
+        const today = new Date().toISOString().slice(0, 10);
+        const { data } = await supabase.from('health_logs').select('*').eq('user_id', user.id).eq('log_date', today).maybeSingle();
+        if (data) {
+          setMood(data.mood); setSymptoms((data.symptoms ?? []).join(', '));
+          setWater(data.water_glasses); setSleep(data.sleep_hours ?? 7);
+        }
+      })();
+    }, [user])
+  );
 
   const save = async () => {
     if (!user) return;
@@ -161,16 +164,18 @@ function HistoryTab() {
     setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   };
 
-  useEffect(() => {
-    if (!user) return;
-    setLoading(true);
-    const { start, end } = monthBounds(month);
-    supabase.from('health_logs')
-      .select('log_date,mood,sleep_hours,water_glasses,symptoms')
-      .eq('user_id', user.id).gte('log_date', start).lte('log_date', end)
-      .order('log_date', { ascending: false })
-      .then(({ data }) => { setLogs((data ?? []) as Log[]); setLoading(false); });
-  }, [user, month]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      setLoading(true);
+      const { start, end } = monthBounds(month);
+      supabase.from('health_logs')
+        .select('log_date,mood,sleep_hours,water_glasses,symptoms')
+        .eq('user_id', user.id).gte('log_date', start).lte('log_date', end)
+        .order('log_date', { ascending: false })
+        .then(({ data }) => { setLogs((data ?? []) as Log[]); setLoading(false); });
+    }, [user, month])
+  );
 
   const stats = useMemo(() => {
     if (logs.length === 0) return null;

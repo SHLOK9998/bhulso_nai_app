@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { Colors } from '@/lib/theme';
@@ -66,7 +67,11 @@ export default function MedicinesScreen() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [user])
+  );
 
   const remove = (id: string) => {
     Alert.alert(t('med.deleteConfirm'), '', [

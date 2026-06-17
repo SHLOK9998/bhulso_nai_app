@@ -3,6 +3,9 @@
 A trilingual, privacy-first health companion app that helps you and your family manage medications, track daily health metrics, and analyze symptoms with AI — with Ayurvedic home remedy suggestions built in.
 
 ---
+## you can try it out at :
+https://bhulso-nai.lovable.app/
+
 
 ## 📌 Project Overview
 

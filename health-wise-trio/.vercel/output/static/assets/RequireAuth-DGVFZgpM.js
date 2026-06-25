@@ -1,0 +1,1 @@
+import{x as a,y as i,q as o,o as s}from"./index-f3J4FR4_.js";function c({children:n}){const{user:e,loading:t}=a(),r=i();return o.useEffect(()=>{!t&&!e&&r({to:"/login"})},[e,t,r]),t||!e?s.jsx("div",{className:"grid min-h-screen place-items-center text-muted-foreground",children:"Loading…"}):s.jsx(s.Fragment,{children:n})}export{c as R};

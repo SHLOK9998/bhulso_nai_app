@@ -53,6 +53,13 @@
     "experiments": {
       "typedRoutes": true
     },
-    "scheme": "healthmate"
+    "scheme": "healthmate",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "48075423-be80-4819-82bd-9e0d69753dd8"
+      }
+    },
+    "owner": "shlok9998"
   }
 }

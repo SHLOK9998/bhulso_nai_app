@@ -68,27 +68,18 @@ export default function DashboardScreen() {
       const langName = lang === 'hi' ? 'Hindi' : lang === 'gu' ? 'Gujarati' : 'English';
       const prompt = `You are a friendly health coach. Based on the user's recent data, give ONE short personalized tip (max 3 sentences) in ${langName}. Be warm, specific, and reference at least one concrete data point. No medical diagnoses.\n\nProfile: ${JSON.stringify(profile)}\nActive medicines: ${JSON.stringify(medsData)}\nLast 14 days of logs: ${JSON.stringify(logs)}`;
 
-      const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-      const model = process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.5-flash';
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://bhulso-nai-app.vercel.app';
+      const url = `${backendUrl}/api/health-coach`;
 
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: prompt }]
-            }
-          ]
-        })
+        body: JSON.stringify({ prompt })
       });
 
       if (!res.ok) throw new Error('Failed to get advice');
       const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? null;
-      setAdvice(text);
+      setAdvice(data.text);
     } catch (e) {
       console.error("Dashboard advice error:", e);
       setAdvice(null);

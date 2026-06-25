@@ -135,23 +135,14 @@ export function FloatingChatbot() {
     setBusy(true);
 
     try {
-      const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-      const model = process.env.EXPO_PUBLIC_GEMINI_MODEL || "gemini-2.5-flash";
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://bhulso-nai-app.vercel.app';
+      const url = `${backendUrl}/api/analyze-symptoms`;
 
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: `${SYS}\n\nUser input: ${userMsg}\nPreferred Language: ${i18n.language}` }]
-            }
-          ],
-          generationConfig: {
-            responseMimeType: 'application/json'
-          }
+          input: `${userMsg}\nPreferred Language: ${i18n.language}`
         })
       });
 

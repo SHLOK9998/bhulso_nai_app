@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 // Set up the notification handler so notifications show in the foreground
 Notifications.setNotificationHandler({
@@ -14,24 +15,36 @@ Notifications.setNotificationHandler({
 
 export const scheduleAllMedicineNotifications = async (userId: string) => {
   try {
-    // 1. Cancel all existing notifications
+    // 1. Setup Android channel for high priority, sound, and heads-up alerts
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('medicine-reminders', {
+        name: 'Medicine Reminders',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#0EA5A4',
+        sound: 'default',
+        enableVibrate: true,
+      });
+    }
+
+    // 2. Cancel all existing notifications
     await Notifications.cancelAllScheduledNotificationsAsync();
 
-    // 2. Check if notifications are disabled in user settings
+    // 3. Check if notifications are disabled in user settings
     const stored = await AsyncStorage.getItem('@settings:notifications_enabled');
     if (stored === 'false') {
       console.log('[Notifications] Disabled in user settings.');
       return;
     }
 
-    // 3. Check system notification permissions
+    // 4. Check system notification permissions
     const { status } = await Notifications.getPermissionsAsync();
     if (status !== 'granted') {
       console.log('[Notifications] System permission not granted.');
       return;
     }
 
-    // 4. Load medicines and family members directly from cache to avoid circular imports
+    // 5. Load medicines and family members directly from cache to avoid circular imports
     const medsRes = await AsyncStorage.getItem(`@cache:medicines:${userId}:medicines_list`);
     const membersRes = await AsyncStorage.getItem(`@cache:family_members:${userId}:family_list`);
 
@@ -46,7 +59,7 @@ export const scheduleAllMedicineNotifications = async (userId: string) => {
 
     const membersMap = new Map<string, any>(members.map((m: any) => [m.id, m]));
 
-    // 5. Get user language preference
+    // 6. Get user language preference
     const profileRes = await AsyncStorage.getItem(`@cache:profiles:${userId}:profile_data`);
     let language = 'en';
     if (profileRes) {
@@ -58,7 +71,7 @@ export const scheduleAllMedicineNotifications = async (userId: string) => {
 
     console.log(`[Notifications] Scheduling reminders for ${activeMeds.length} active medicines. Language: ${language}`);
 
-    // 6. Schedule recurring notifications
+    // 7. Schedule recurring notifications
     for (const med of activeMeds) {
       const member = med.member_id ? membersMap.get(med.member_id) : null;
       const personName = member ? member.name : '';
@@ -94,6 +107,11 @@ export const scheduleAllMedicineNotifications = async (userId: string) => {
             body,
             sound: true,
             priority: Notifications.AndroidNotificationPriority.HIGH,
+            ...Platform.select({
+              android: {
+                channelId: 'medicine-reminders',
+              },
+            }),
           },
           trigger: {
             hour,

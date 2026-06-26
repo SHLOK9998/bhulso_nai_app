@@ -228,6 +228,9 @@ function MedicineModal({ visible, onClose, med, members, onSaved }: {
 
   const save = async () => {
     if (!user || !name.trim()) return Alert.alert('Error', 'Medicine name is required');
+    if (tags.length === 0) {
+      return Alert.alert('Error', 'Please select at least one reminder time (Morning, Afternoon, or Night)');
+    }
     setBusy(true);
     const reminder_times = tags.map((tg) => timeMap[tg]).filter(Boolean);
     const ownerColor = memberId === 'self' ? SELF_COLOR : members.find((x) => x.id === memberId)?.color ?? SELF_COLOR;

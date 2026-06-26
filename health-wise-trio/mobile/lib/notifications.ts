@@ -37,8 +37,12 @@ export const scheduleAllMedicineNotifications = async (userId: string) => {
       return;
     }
 
-    // 4. Check system notification permissions
-    const { status } = await Notifications.getPermissionsAsync();
+    // 4. Check system notification permissions and request them if not granted
+    let { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      const { status: askStatus } = await Notifications.requestPermissionsAsync();
+      status = askStatus;
+    }
     if (status !== 'granted') {
       console.log('[Notifications] System permission not granted.');
       return;
@@ -114,9 +118,9 @@ export const scheduleAllMedicineNotifications = async (userId: string) => {
             }),
           },
           trigger: {
+            type: 'daily',
             hour,
             minute,
-            repeats: true,
           } as any,
         });
       }

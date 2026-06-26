@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
 export const Route = createFileRoute("/medicines")({
-  validateSearch: (s: Record<string, unknown>) => ({ memberId: typeof s.memberId === "string" ? s.memberId : undefined }),
+  validateSearch: (s: Record<string, unknown>): { memberId?: string } => ({ memberId: typeof s.memberId === "string" ? s.memberId : undefined }),
   component: () => <RequireAuth><Medicines /></RequireAuth>,
 });
 
@@ -310,62 +310,63 @@ function MedicineDialog({ open, onOpenChange, med, members, prefillMember, onSav
 
           <div>
             <Label>{t("med.times")}</Label>
-            <div className="mt-1.5 grid gap-2 grid-cols-3">
+            <div className="mt-1.5 space-y-3">
               {(["morning", "afternoon", "night"] as const).map((tg) => {
                 const active = tags.includes(tg);
+                const options = tg === "morning"
+                  ? [{ val: "none", label: t("med.meal.none") }, { val: "before_breakfast", label: t("med.meal.before_breakfast") }, { val: "after_breakfast", label: t("med.meal.after_breakfast") }]
+                  : tg === "afternoon"
+                  ? [{ val: "none", label: t("med.meal.none") }, { val: "before_lunch", label: t("med.meal.before_lunch") }, { val: "after_lunch", label: t("med.meal.after_lunch") }]
+                  : [{ val: "none", label: t("med.meal.none") }, { val: "before_dinner", label: t("med.meal.before_dinner") }, { val: "after_dinner", label: t("med.meal.after_dinner") }];
+                
+                const currentVal = mealTimingsObj[tg] || "none";
                 return (
-                  <div key={tg} className={`rounded-xl border p-2 transition flex flex-col justify-between ${active ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"}`}>
-                    <div className="flex flex-col items-center justify-center gap-1.5 cursor-pointer text-center" onClick={() => toggleTag(tg)}>
-                      <div className={`h-4 w-4 rounded-full border flex flex-shrink-0 items-center justify-center ${active ? "border-primary bg-primary text-primary-foreground" : "border-input"}`}>
-                        {active && <div className="h-2 w-2 rounded-full bg-current" />}
+                  <div key={tg} className={`rounded-2xl border p-4 transition ${active ? "border-primary bg-primary/5" : "border-border hover:bg-muted/30"}`}>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 cursor-pointer" onClick={() => toggleTag(tg)}>
+                        <div className={`h-5 w-5 rounded-full border flex items-center justify-center ${active ? "border-primary bg-primary text-primary-foreground" : "border-input"}`}>
+                          {active && <div className="h-2.5 w-2.5 rounded-full bg-current" />}
+                        </div>
+                        <span className="font-semibold text-sm capitalize">{t(`med.${tg}`)}</span>
                       </div>
-                      <Label className="text-xs font-medium cursor-pointer">{t(`med.${tg}`)}</Label>
+                      
+                      {active && (
+                        <Input 
+                          type="time" 
+                          required 
+                          value={timeMap[tg] || ""} 
+                          onChange={(e) => setTimeMap((m) => ({ ...m, [tg]: e.target.value }))} 
+                          className="h-10 w-32 px-3 text-center text-sm rounded-xl bg-background border-border" 
+                        />
+                      )}
                     </div>
+
                     {active && (
-                      <Input type="time" required value={timeMap[tg] || ""} onChange={(e) => setTimeMap((m) => ({ ...m, [tg]: e.target.value }))} className="mt-2 h-8 w-full px-1 text-center text-xs rounded-md bg-background" />
+                      <div className="mt-3 pt-3 border-t border-border/40">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-muted-foreground">{t("med.mealTiming") || "Meal Timing"}</span>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {options.map((opt) => (
+                              <Button
+                                key={opt.val}
+                                type="button"
+                                variant={currentVal === opt.val ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setMealTimingsObj(prev => ({ ...prev, [tg]: opt.val }))}
+                                className="h-8 rounded-lg text-xs font-medium px-2.5"
+                              >
+                                {opt.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 );
               })}
             </div>
           </div>
-
-          {/* Conditional meal timing options per active tag */}
-          {tags.length > 0 && (
-            <div className="mt-4 space-y-2 border-t pt-4">
-              <Label className="text-sm font-semibold">{t("med.mealTiming")}</Label>
-              <div className="space-y-2.5">
-                {tags.map((tg) => {
-                  const options = tg === "morning"
-                    ? [{ val: "none", label: t("med.meal.none") }, { val: "before_breakfast", label: t("med.meal.before_breakfast") }, { val: "after_breakfast", label: t("med.meal.after_breakfast") }]
-                    : tg === "afternoon"
-                    ? [{ val: "none", label: t("med.meal.none") }, { val: "before_lunch", label: t("med.meal.before_lunch") }, { val: "after_lunch", label: t("med.meal.after_lunch") }]
-                    : [{ val: "none", label: t("med.meal.none") }, { val: "before_dinner", label: t("med.meal.before_dinner") }, { val: "after_dinner", label: t("med.meal.after_dinner") }];
-                  
-                  const currentVal = mealTimingsObj[tg] || "none";
-                  return (
-                    <div key={tg} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border border-border/60 bg-muted/20">
-                      <span className="text-xs font-bold uppercase text-muted-foreground">{t(`med.${tg}`)}</span>
-                      <div className="flex gap-1.5 flex-wrap">
-                        {options.map((opt) => (
-                          <Button
-                            key={opt.val}
-                            type="button"
-                            variant={currentVal === opt.val ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setMealTimingsObj(prev => ({ ...prev, [tg]: opt.val }))}
-                            className="h-8 rounded-lg text-xs font-medium px-2.5"
-                          >
-                            {opt.label}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           <div className="flex gap-2">
             <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={() => onOpenChange(false)}>{t("med.cancel")}</Button>

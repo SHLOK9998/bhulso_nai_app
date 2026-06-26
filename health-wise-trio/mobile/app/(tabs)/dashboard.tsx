@@ -4,7 +4,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '@/lib/supabase';
+import { dbGetProfile, dbGetHealthLogs, dbGetMedicines, dbGetTodayLog, dbGetReminders, dbGetFamilyMembers, dbSaveReminder } from '@/lib/offlineDb';
 import { useAuth } from '@/lib/auth';
 import { calculateHealthScore } from '@/lib/healthScore';
 import { Colors } from '@/lib/theme';
@@ -59,14 +59,15 @@ export default function DashboardScreen() {
     try {
       const since = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
       const [{ data: profile }, { data: logs }, { data: medsData }] = await Promise.all([
-        supabase.from('profiles').select('name,age,gender,conditions,goals,wake_time,sleep_time,language').eq('id', user.id).maybeSingle(),
-        supabase.from('health_logs').select('log_date,mood,sleep_hours,water_glasses,symptoms').eq('user_id', user.id).gte('log_date', since).order('log_date', { ascending: false }),
-        supabase.from('medicines').select('name,reminder_times,tags').eq('user_id', user.id).eq('active', true),
+        dbGetProfile(user.id),
+        dbGetHealthLogs(user.id, since),
+        dbGetMedicines(user.id),
       ]);
+      const activeMeds = (medsData ?? []).filter((m: any) => m.active);
 
       const lang = profile?.language || i18n.language || 'en';
       const langName = lang === 'hi' ? 'Hindi' : lang === 'gu' ? 'Gujarati' : 'English';
-      const prompt = `You are a friendly health coach. Based on the user's recent data, give ONE short personalized tip (max 3 sentences) in ${langName}. Be warm, specific, and reference at least one concrete data point. No medical diagnoses.\n\nProfile: ${JSON.stringify(profile)}\nActive medicines: ${JSON.stringify(medsData)}\nLast 14 days of logs: ${JSON.stringify(logs)}`;
+      const prompt = `You are a friendly health coach. Based on the user's recent data, give ONE short personalized tip (max 3 sentences) in ${langName}. Be warm, specific, and reference at least one concrete data point. No medical diagnoses.\n\nProfile: ${JSON.stringify(profile)}\nActive medicines: ${JSON.stringify(activeMeds)}\nLast 14 days of logs: ${JSON.stringify(logs)}`;
 
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://bhulso-nai-app.vercel.app';
       const url = `${backendUrl}/api/health-coach`;
@@ -92,15 +93,16 @@ export default function DashboardScreen() {
     if (!user) return;
     const today = new Date().toISOString().slice(0, 10);
     const [{ data: profile }, { data: medsData }, { data: logData }, { data: reminders }, { data: fm }] = await Promise.all([
-      supabase.from('profiles').select('name,language,onboarded').eq('id', user.id).maybeSingle(),
-      supabase.from('medicines').select('*').eq('user_id', user.id).eq('active', true),
-      supabase.from('health_logs').select('water_glasses,sleep_hours,mood').eq('user_id', user.id).eq('log_date', today).maybeSingle(),
-      supabase.from('reminders').select('medicine_id,scheduled_time,status').eq('user_id', user.id).eq('scheduled_date', today),
-      supabase.from('family_members').select('id,name,color').eq('user_id', user.id),
+      dbGetProfile(user.id),
+      dbGetMedicines(user.id),
+      dbGetTodayLog(user.id, today),
+      dbGetReminders(user.id, today),
+      dbGetFamilyMembers(user.id),
     ]);
     if (profile && !profile.onboarded) { router.replace('/onboarding'); return; }
     if (profile?.name) setName(profile.name);
-    setMeds((medsData ?? []) as Med[]);
+    const activeMeds = (medsData ?? []).filter((m: any) => m.active);
+    setMeds(activeMeds as Med[]);
     setMembers((fm ?? []) as Member[]);
     setTodayLog(logData ?? null);
     const map: Record<string, boolean> = {};
@@ -125,10 +127,12 @@ export default function DashboardScreen() {
     const today = new Date().toISOString().slice(0, 10);
     const key = `${medId}|${time}`;
     setTodayTaken((m) => ({ ...m, [key]: taken }));
-    await supabase.from('reminders').upsert(
-      { user_id: user.id, medicine_id: medId, scheduled_date: today, scheduled_time: time, status: taken ? 'taken' : 'pending', taken_at: taken ? new Date().toISOString() : null },
-      { onConflict: 'medicine_id,scheduled_date,scheduled_time' }
-    );
+    await dbSaveReminder(user.id, today, {
+      medicine_id: medId,
+      scheduled_time: time,
+      status: taken ? 'taken' : 'pending',
+      taken_at: taken ? new Date().toISOString() : null
+    });
   };
 
   const adherence = useMemo<number | null>(() => {

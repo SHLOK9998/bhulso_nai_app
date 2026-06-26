@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '@/lib/supabase';
+import { dbGetFamilyMembers, dbSaveFamilyMember, dbDeleteFamilyMember } from '@/lib/offlineDb';
 import { useAuth } from '@/lib/auth';
 import { Colors } from '@/lib/theme';
 import { Card, GradientButton, OutlineButton } from '@/components/UI';
@@ -24,7 +24,7 @@ export default function FamilyScreen() {
 
   const load = async () => {
     if (!user) return;
-    const { data } = await supabase.from('family_members').select('*').eq('user_id', user.id).order('created_at');
+    const { data } = await dbGetFamilyMembers(user.id);
     setMembers((data ?? []) as Member[]);
     setLoading(false);
   };
@@ -38,7 +38,7 @@ export default function FamilyScreen() {
   const remove = (id: string) => {
     Alert.alert(t('family.deleteConfirm'), '', [
       { text: t('med.cancel'), style: 'cancel' },
-      { text: t('med.delete'), style: 'destructive', onPress: async () => { await supabase.from('family_members').delete().eq('id', id); load(); } },
+      { text: t('med.delete'), style: 'destructive', onPress: async () => { if (user) { await dbDeleteFamilyMember(user.id, id); load(); } } },
     ]);
   };
 
@@ -138,11 +138,9 @@ function MemberModal({ visible, onClose, member, onSaved }: {
   const save = async () => {
     if (!user || !name.trim()) return Alert.alert('Error', 'Name is required');
     setBusy(true);
-    const payload = { user_id: user.id, name: name.trim(), relation, age: age ? Number(age) : null, color };
+    const payload = { name: name.trim(), relation, age: age ? Number(age) : null, color };
     const wasNew = !member;
-    const { data, error } = member
-      ? await supabase.from('family_members').update(payload).eq('id', member.id).select().maybeSingle()
-      : await supabase.from('family_members').insert(payload).select().maybeSingle();
+    const { data, error } = await dbSaveFamilyMember(user.id, payload, member?.id);
     setBusy(false);
     if (error) return Alert.alert('Error', error.message);
     onSaved((data as Member) ?? null, wasNew);
@@ -209,7 +207,11 @@ const styles = StyleSheet.create({
   promptTitle: { fontSize: 16, fontWeight: '700', color: Colors.foreground, marginBottom: 18, textAlign: 'center' },
   promptBtns: { flexDirection: 'row', gap: 12 },
   modal: { flex: 1, backgroundColor: Colors.background },
-  modalContent: { padding: 24, paddingBottom: 40 },
+  modalContent: {
+    padding: 24,
+    paddingTop: Platform.OS === 'android' ? 48 : 24,
+    paddingBottom: 40,
+  },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: '800', color: Colors.foreground },
   label: { fontSize: 14, fontWeight: '600', color: Colors.foreground, marginBottom: 6 },

@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { Colors } from '@/lib/theme';
 import { supabase } from '@/lib/supabase';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type AIResp = {
   language?: string;
@@ -55,6 +56,7 @@ Rules:
 
 export function FloatingChatbot() {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [modalOpen, setModalOpen] = useState(false);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -152,9 +154,7 @@ export function FloatingChatbot() {
         throw new Error("Gemini API call failed");
       }
 
-      const rawData = await res.json();
-      const textResponse = rawData.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-      const data: AIResp = JSON.parse(textResponse);
+      const data: AIResp = await res.json();
 
       if (data.error) {
         Alert.alert('Error', data.error ?? 'Failed to get AI response');
@@ -375,7 +375,7 @@ export function FloatingChatbot() {
             </ScrollView>
 
             {/* Input Bar */}
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
               <TextInput
                 style={[styles.input, { maxHeight: 100 }]}
                 value={input}

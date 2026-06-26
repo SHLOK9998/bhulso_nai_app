@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Alert,
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '@/lib/supabase';
+import { dbGetTodayLog, dbSaveHealthLog, dbGetHealthLogs } from '@/lib/offlineDb';
 import { useAuth } from '@/lib/auth';
 import { Colors } from '@/lib/theme';
 import { Card, GradientButton, SectionTitle } from '@/components/UI';
@@ -62,7 +62,7 @@ function TodayTab() {
       if (!user) return;
       (async () => {
         const today = new Date().toISOString().slice(0, 10);
-        const { data } = await supabase.from('health_logs').select('*').eq('user_id', user.id).eq('log_date', today).maybeSingle();
+        const { data } = await dbGetTodayLog(user.id, today);
         if (data) {
           setMood(data.mood); setSymptoms((data.symptoms ?? []).join(', '));
           setWater(data.water_glasses); setSleep(data.sleep_hours ?? 7);
@@ -76,10 +76,9 @@ function TodayTab() {
     setBusy(true);
     const today = new Date().toISOString().slice(0, 10);
     const sym = symptoms.split(',').map((s) => s.trim()).filter(Boolean);
-    const { error } = await supabase.from('health_logs').upsert(
-      { user_id: user.id, log_date: today, mood, symptoms: sym, water_glasses: water, sleep_hours: sleep },
-      { onConflict: 'user_id,log_date' }
-    );
+    const { error } = await dbSaveHealthLog(user.id, today, {
+      mood, symptoms: sym, water_glasses: water, sleep_hours: sleep
+    });
     setBusy(false);
     if (error) Alert.alert('Error', error.message);
     else Alert.alert('✓', t('log.saved'));
@@ -169,11 +168,11 @@ function HistoryTab() {
       if (!user) return;
       setLoading(true);
       const { start, end } = monthBounds(month);
-      supabase.from('health_logs')
-        .select('log_date,mood,sleep_hours,water_glasses,symptoms')
-        .eq('user_id', user.id).gte('log_date', start).lte('log_date', end)
-        .order('log_date', { ascending: false })
-        .then(({ data }) => { setLogs((data ?? []) as Log[]); setLoading(false); });
+      dbGetHealthLogs(user.id, start).then(({ data }) => {
+        const filtered = (data ?? []).filter((l: Log) => l.log_date <= end);
+        setLogs(filtered as Log[]);
+        setLoading(false);
+      });
     }, [user, month])
   );
 

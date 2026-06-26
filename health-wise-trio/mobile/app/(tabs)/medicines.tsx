@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from 'expo-router';
-import { supabase } from '@/lib/supabase';
+import { dbGetMedicines, dbSaveMedicine, dbDeleteMedicine, dbGetFamilyMembers } from '@/lib/offlineDb';
 import { useAuth } from '@/lib/auth';
 import { Colors } from '@/lib/theme';
 import { Card, GradientButton, OutlineButton, Badge } from '@/components/UI';
@@ -59,8 +59,8 @@ export default function MedicinesScreen() {
   const load = async () => {
     if (!user) return;
     const [{ data: m }, { data: fm }] = await Promise.all([
-      supabase.from('medicines').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('family_members').select('id,name,color,relation').eq('user_id', user.id).order('created_at'),
+      dbGetMedicines(user.id),
+      dbGetFamilyMembers(user.id),
     ]);
     setMeds((m ?? []) as Med[]);
     setMembers((fm ?? []) as Member[]);
@@ -78,8 +78,10 @@ export default function MedicinesScreen() {
       { text: t('med.cancel'), style: 'cancel' },
       {
         text: t('med.delete'), style: 'destructive', onPress: async () => {
-          await supabase.from('medicines').delete().eq('id', id);
-          load();
+          if (user) {
+            await dbDeleteMedicine(user.id, id);
+            load();
+          }
         }
       },
     ]);
@@ -168,6 +170,9 @@ function MedicineModal({ visible, onClose, med, members, onSaved }: {
   const [memberId, setMemberId] = useState('self');
   const [mealTimingsObj, setMealTimingsObj] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<string | null>(null);
+  const [pickerValue, setPickerValue] = useState('08:00');
 
   useEffect(() => {
     if (med) {
@@ -212,6 +217,10 @@ function MedicineModal({ visible, onClose, med, members, onSaved }: {
         setMealTimingsObj(nextTimings);
         return cur.filter((x) => x !== tag);
       } else {
+        if (!timeMap[tag]) {
+          const defaultTime = tag === 'morning' ? '08:00' : tag === 'afternoon' ? '13:00' : '20:00';
+          setTimeMap((prev) => ({ ...prev, [tag]: defaultTime }));
+        }
         return [...cur, tag];
       }
     });
@@ -230,21 +239,27 @@ function MedicineModal({ visible, onClose, med, members, onSaved }: {
     });
 
     const payload = {
-      user_id: user.id, name: name.trim(), medicine_type: type, tags, reminder_times,
+      name: name.trim(), medicine_type: type, tags, reminder_times,
       pill_color: ownerColor, notes: null,
       duration_days: duration ? Number(duration) : null,
       member_id: memberId === 'self' ? null : memberId,
       meal_timing: Object.keys(activeMealTimings).length > 0 ? JSON.stringify(activeMealTimings) : null,
     };
-    const { error } = med
-      ? await supabase.from('medicines').update(payload).eq('id', med.id)
-      : await supabase.from('medicines').insert(payload);
+    const { error } = await dbSaveMedicine(user.id, payload, med?.id);
     setBusy(false);
     if (error) return Alert.alert('Error', error.message);
     onSaved();
   };
 
   const memberOptions = [{ id: 'self', name: t('med.self'), color: SELF_COLOR }, ...members.map((m) => ({ id: m.id, name: m.name, color: m.color ?? SELF_COLOR }))];
+
+  const getMealOptionsFor = (tg: string) => {
+    return tg === 'morning'
+      ? [{ val: 'none', label: t('med.meal.none') }, { val: 'before_breakfast', label: t('med.meal.before_breakfast') }, { val: 'after_breakfast', label: t('med.meal.after_breakfast') }]
+      : tg === 'afternoon'
+      ? [{ val: 'none', label: t('med.meal.none') }, { val: 'before_lunch', label: t('med.meal.before_lunch') }, { val: 'after_lunch', label: t('med.meal.after_lunch') }]
+      : [{ val: 'none', label: t('med.meal.none') }, { val: 'before_dinner', label: t('med.meal.before_dinner') }, { val: 'after_dinner', label: t('med.meal.after_dinner') }];
+  };
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -257,7 +272,7 @@ function MedicineModal({ visible, onClose, med, members, onSaved }: {
         <Text style={styles.label}>{t('med.name')}</Text>
         <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="e.g. Paracetamol" placeholderTextColor={Colors.mutedForeground} />
 
-        <Text style={[styles.label, { marginTop: 14 }]}>{t('med.forMember')}</Text>
+        <Text style={[styles.label, { marginTop: 16 }]}>{t('med.forMember')}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {memberOptions.map((m) => (
@@ -270,83 +285,155 @@ function MedicineModal({ visible, onClose, med, members, onSaved }: {
           </View>
         </ScrollView>
 
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.label, { marginTop: 14 }]}>{t('med.type')}</Text>
-            <View style={styles.chipRow}>
-              {MED_TYPES.map((tp) => (
-                <TouchableOpacity key={tp} onPress={() => setType(tp)}
-                  style={[styles.chip, type === tp && styles.chipActive]}>
-                  <Text style={[styles.chipText, type === tp && styles.chipTextActive]}>{tp}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-          <View style={{ width: 12 }} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.label, { marginTop: 14 }]}>{t('med.duration')}</Text>
-            <TextInput style={styles.input} value={duration} onChangeText={setDuration} keyboardType="number-pad"
-              placeholder={t('med.durationLifetimePh')} placeholderTextColor={Colors.mutedForeground} />
-          </View>
+        <Text style={[styles.label, { marginTop: 16 }]}>{t('med.type')}</Text>
+        <View style={styles.chipRow}>
+          {MED_TYPES.map((tp) => (
+            <TouchableOpacity key={tp} onPress={() => setType(tp)}
+              style={[styles.chip, type === tp && styles.chipActive]}>
+              <Text style={[styles.chipText, type === tp && styles.chipTextActive]}>{tp}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        <Text style={[styles.label, { marginTop: 14 }]}>{t('med.times')}</Text>
-        <View style={styles.timeTagsRow}>
+        <Text style={[styles.label, { marginTop: 16 }]}>{t('med.duration')}</Text>
+        <TextInput style={styles.input} value={duration} onChangeText={setDuration} keyboardType="number-pad"
+          placeholder={t('med.durationLifetimePh')} placeholderTextColor={Colors.mutedForeground} />
+
+        <Text style={[styles.label, { marginTop: 18 }]}>{t('med.times')}</Text>
+        <View style={styles.remindersContainer}>
           {TIME_TAGS.map((tg) => {
             const active = tags.includes(tg);
+            const timeVal = timeMap[tg] || (tg === 'morning' ? '08:00' : tg === 'afternoon' ? '13:00' : '20:00');
             return (
-              <View key={tg} style={[styles.timeTagBox, active && styles.timeTagBoxActive]}>
-                <TouchableOpacity onPress={() => toggleTag(tg)} style={styles.timeTagHeader}>
-                  <View style={[styles.radio, active && styles.radioActive]}>
-                    {active && <View style={styles.radioDot} />}
-                  </View>
-                  <Text style={[styles.timeTagLabel, active && { color: Colors.primary }]}>{t(`med.${tg}`)}</Text>
-                </TouchableOpacity>
+              <View key={tg} style={[styles.reminderRowCard, active && styles.reminderRowCardActive]}>
+                <View style={styles.reminderRowHeader}>
+                  <TouchableOpacity onPress={() => toggleTag(tg)} style={styles.reminderCheckbox}>
+                    <View style={[styles.radio, active && styles.radioActive]}>
+                      {active && <View style={styles.radioDot} />}
+                    </View>
+                    <Text style={[styles.reminderLabel, active && { color: Colors.primary }]}>
+                      {t(`med.${tg}`)}
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  {active && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setPickerTarget(tg);
+                        setPickerValue(timeVal);
+                        setPickerVisible(true);
+                      }}
+                      style={styles.timePickerBtnInline}
+                    >
+                      <Ionicons name="time-outline" size={16} color={Colors.primary} />
+                      <Text style={styles.timePickerTextInline}>{timeVal}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
                 {active && (
-                  <TextInput style={[styles.input, { marginTop: 8 }]} value={timeMap[tg] ?? ''} onChangeText={(v) => setTimeMap((m) => ({ ...m, [tg]: v }))}
-                    placeholder="08:00" placeholderTextColor={Colors.mutedForeground} />
+                  <View style={styles.mealTimingInline}>
+                    <Text style={styles.mealLabelInline}>{t('med.mealTiming') || 'Meal Timing'}</Text>
+                    <View style={styles.mealChipsRow}>
+                      {getMealOptionsFor(tg).map((opt) => {
+                        const currentVal = mealTimingsObj[tg] || 'none';
+                        const isSelected = currentVal === opt.val;
+                        return (
+                          <TouchableOpacity
+                            key={opt.val}
+                            onPress={() => setMealTimingsObj(prev => ({ ...prev, [tg]: opt.val }))}
+                            style={[styles.mealChipInline, isSelected && styles.mealChipInlineActive]}
+                          >
+                            <Text style={[styles.mealChipTextInline, isSelected && styles.mealChipTextInlineActive]}>
+                              {opt.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
                 )}
               </View>
             );
           })}
         </View>
 
-        {/* Conditional meal timing options per active tag */}
-        {tags.length > 0 && (
-          <View style={{ marginTop: 14 }}>
-            <Text style={styles.label}>{t('med.mealTiming')}</Text>
-            <View style={{ gap: 8 }}>
-              {tags.map((tg) => {
-                const options = tg === 'morning'
-                  ? [{ val: 'none', label: t('med.meal.none') }, { val: 'before_breakfast', label: t('med.meal.before_breakfast') }, { val: 'after_breakfast', label: t('med.meal.after_breakfast') }]
-                  : tg === 'afternoon'
-                  ? [{ val: 'none', label: t('med.meal.none') }, { val: 'before_lunch', label: t('med.meal.before_lunch') }, { val: 'after_lunch', label: t('med.meal.after_lunch') }]
-                  : [{ val: 'none', label: t('med.meal.none') }, { val: 'before_dinner', label: t('med.meal.before_dinner') }, { val: 'after_dinner', label: t('med.meal.after_dinner') }];
-                
-                const currentVal = mealTimingsObj[tg] || 'none';
-                return (
-                  <View key={tg} style={{ padding: 10, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.card }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', textTransform: 'uppercase', color: Colors.mutedForeground, marginBottom: 6 }}>{t(`med.${tg}`)}</Text>
-                    <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-                      {options.map((opt) => (
-                        <TouchableOpacity key={opt.val} onPress={() => setMealTimingsObj(prev => ({ ...prev, [tg]: opt.val }))}
-                          style={[styles.chip, { paddingVertical: 5, paddingHorizontal: 10 }, currentVal === opt.val && styles.chipActive]}>
-                          <Text style={[styles.chipText, { fontSize: 12 }, currentVal === opt.val && styles.chipTextActive]}>{opt.label}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        <View style={[styles.row, { gap: 12, marginTop: 24 }]}>
+        <View style={[styles.row, { gap: 12, marginTop: 24, marginBottom: 20 }]}>
           <OutlineButton title={t('med.cancel')} onPress={onClose} style={{ flex: 1 }} />
           <GradientButton title={busy ? '...' : t('med.save')} onPress={save} loading={busy} style={{ flex: 1 }} />
         </View>
+        <TimePickerDialog
+          visible={pickerVisible}
+          value={pickerValue}
+          onClose={() => setPickerVisible(false)}
+          onSelect={(val) => setTimeMap((m) => ({ ...m, [pickerTarget || '']: val }))}
+        />
       </ScrollView>
+    </Modal>
+  );
+}
+
+function TimePickerDialog({ visible, value, onClose, onSelect }: { visible: boolean; value: string; onClose: () => void; onSelect: (val: string) => void }) {
+  const [h, m] = (value || '08:00').split(':').map(Number);
+  const [hour, setHour] = useState(isNaN(h) ? 8 : h);
+  const [minute, setMinute] = useState(isNaN(m) ? 0 : m);
+
+  useEffect(() => {
+    if (visible) {
+      const [currH, currM] = (value || '08:00').split(':').map(Number);
+      setHour(isNaN(currH) ? 8 : currH);
+      setMinute(isNaN(currM) ? 0 : currM);
+    }
+  }, [visible, value]);
+
+  const handleSave = () => {
+    const hh = String(hour).padStart(2, '0');
+    const mm = String(minute).padStart(2, '0');
+    onSelect(`${hh}:${mm}`);
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.pickerOverlay}>
+        <View style={styles.pickerCard}>
+          <Text style={styles.pickerTitle}>Select Time (24h)</Text>
+          <View style={styles.clockRow}>
+            {/* Hour Column */}
+            <View style={styles.pickerColumn}>
+              <TouchableOpacity onPress={() => setHour((h) => (h + 1) % 24)} style={styles.arrowBtn}>
+                <Ionicons name="chevron-up" size={28} color={Colors.primary} />
+              </TouchableOpacity>
+              <View style={styles.timeValueBox}>
+                <Text style={styles.timeValueText}>{String(hour).padStart(2, '0')}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setHour((h) => (h - 1 + 24) % 24)} style={styles.arrowBtn}>
+                <Ionicons name="chevron-down" size={28} color={Colors.primary} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.colonText}>:</Text>
+
+            {/* Minute Column */}
+            <View style={styles.pickerColumn}>
+              <TouchableOpacity onPress={() => setMinute((m) => (m + 1) % 60)} style={styles.arrowBtn}>
+                <Ionicons name="chevron-up" size={28} color={Colors.primary} />
+              </TouchableOpacity>
+              <View style={styles.timeValueBox}>
+                <Text style={styles.timeValueText}>{String(minute).padStart(2, '0')}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setMinute((m) => (m - 1 + 60) % 60)} style={styles.arrowBtn}>
+                <Ionicons name="chevron-down" size={28} color={Colors.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.pickerActions}>
+            <OutlineButton title="Cancel" onPress={onClose} style={{ flex: 1 }} />
+            <GradientButton title="Confirm" onPress={handleSave} style={{ flex: 1 }} />
+          </View>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -370,7 +457,11 @@ const styles = StyleSheet.create({
   timeChip: { backgroundColor: Colors.muted, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   timeText: { fontSize: 12, fontWeight: '600', color: Colors.foreground, fontVariant: ['tabular-nums'] },
   modal: { flex: 1, backgroundColor: Colors.background },
-  modalContent: { padding: 24, paddingBottom: 40 },
+  modalContent: {
+    padding: 24,
+    paddingTop: Platform.OS === 'android' ? 48 : 24,
+    paddingBottom: 40,
+  },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: '800', color: Colors.foreground },
   label: { fontSize: 14, fontWeight: '600', color: Colors.foreground, marginBottom: 6 },
@@ -391,5 +482,156 @@ const styles = StyleSheet.create({
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
   radioActive: { borderColor: Colors.primary },
   radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
-  timeTagLabel: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
+  remindersContainer: {
+    gap: 12,
+    marginTop: 4,
+  },
+  reminderRowCard: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    padding: 14,
+    backgroundColor: Colors.card,
+  },
+  reminderRowCardActive: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary + '03',
+  },
+  reminderRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  reminderCheckbox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    paddingVertical: 4,
+  },
+  reminderLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.foreground,
+    textTransform: 'capitalize',
+  },
+  timePickerBtnInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary + '08',
+  },
+  timePickerTextInline: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.primary,
+    fontVariant: ['tabular-nums'],
+  },
+  mealTimingInline: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  mealLabelInline: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.mutedForeground,
+    marginBottom: 8,
+  },
+  mealChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  mealChipInline: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+  },
+  mealChipInlineActive: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary + '12',
+  },
+  mealChipTextInline: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.foreground,
+  },
+  mealChipTextInlineActive: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  pickerCard: {
+    width: 280,
+    padding: 20,
+    alignItems: 'center',
+    borderRadius: 24,
+    backgroundColor: Colors.card,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  pickerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.foreground,
+    marginBottom: 20,
+  },
+  clockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  pickerColumn: {
+    alignItems: 'center',
+  },
+  arrowBtn: {
+    padding: 8,
+  },
+  timeValueBox: {
+    width: 70,
+    height: 70,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeValueText: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: Colors.foreground,
+  },
+  colonText: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: Colors.foreground,
+    marginHorizontal: 12,
+    paddingBottom: 4,
+  },
+  pickerActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
 });

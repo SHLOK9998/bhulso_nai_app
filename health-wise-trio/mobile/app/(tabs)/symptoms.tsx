@@ -63,10 +63,7 @@ export default function SymptomsScreen() {
         throw new Error("Gemini API call failed");
       }
 
-      const rawData = await res.json();
-      const textResponse = rawData.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-      const data: AIResp = JSON.parse(textResponse);
-
+      const data: AIResp = await res.json();
       if (data.error) Alert.alert('Error', data.error ?? 'Failed');
       else setResp(data);
     } catch (e) {

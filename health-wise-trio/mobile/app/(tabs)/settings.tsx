@@ -4,9 +4,12 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { dbGetProfile, dbUpdateProfile } from '@/lib/offlineDb';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { setLanguage } from '@/lib/i18n';
+import { scheduleAllMedicineNotifications } from '@/lib/notifications';
 import { Colors } from '@/lib/theme';
 import { Card, GradientButton, OutlineButton } from '@/components/UI';
 import { SwipeLayout } from '@/components/SwipeLayout';
@@ -28,17 +31,27 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from('profiles').select('name,language').eq('id', user.id).maybeSingle().then(({ data }) => {
+    dbGetProfile(user.id).then(({ data }) => {
       if (data?.name) setName(data.name);
       if (data?.language) setLang(data.language);
     });
-    Notifications.getPermissionsAsync().then(({ status }) => setNotifEnabled(status === 'granted'));
+
+    (async () => {
+      const stored = await AsyncStorage.getItem('@settings:notifications_enabled');
+      const { status } = await Notifications.getPermissionsAsync();
+      const granted = status === 'granted';
+      if (stored === 'false') {
+        setNotifEnabled(false);
+      } else {
+        setNotifEnabled(granted);
+      }
+    })();
   }, [user]);
 
   const save = async () => {
     if (!user) return;
     setBusy(true);
-    const { error } = await supabase.from('profiles').update({ name, language, updated_at: new Date().toISOString() }).eq('id', user.id);
+    const { error } = await dbUpdateProfile(user.id, { name, language });
     setBusy(false);
     if (error) return Alert.alert('Error', error.message);
     await setLanguage(language);
@@ -56,11 +69,26 @@ export default function SettingsScreen() {
     Alert.alert('✓', t('auth.passwordUpdated'));
   };
 
-  const requestNotifications = async () => {
-    const { status } = await Notifications.requestPermissionsAsync();
-    setNotifEnabled(status === 'granted');
-    if (status === 'granted') Alert.alert('✓', t('notifications.enabled'));
-    else Alert.alert('Blocked', t('notifications.blocked'));
+  const toggleNotifications = async (value: boolean) => {
+    if (!user) return;
+    if (value) {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status === 'granted') {
+        setNotifEnabled(true);
+        await AsyncStorage.setItem('@settings:notifications_enabled', 'true');
+        await scheduleAllMedicineNotifications(user.id);
+        Alert.alert('✓', t('notifications.enabled'));
+      } else {
+        setNotifEnabled(false);
+        await AsyncStorage.setItem('@settings:notifications_enabled', 'false');
+        Alert.alert('Blocked', t('notifications.blocked'));
+      }
+    } else {
+      setNotifEnabled(false);
+      await AsyncStorage.setItem('@settings:notifications_enabled', 'false');
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      Alert.alert('✓', t('notifications.disabled') || 'Alarms disabled');
+    }
   };
 
   const logout = async () => {
@@ -104,16 +132,20 @@ export default function SettingsScreen() {
         <Text style={styles.sectionSub}>{t('notifications.sub')}</Text>
         <View style={styles.notifRow}>
           <View style={styles.notifLeft}>
-            <Ionicons name={notifEnabled ? 'notifications' : 'notifications-off-outline'} size={22} color={notifEnabled ? Colors.primary : Colors.mutedForeground} />
+            <Ionicons name={notifEnabled ? 'notifications' : 'notifications-off-outline'} size={24} color={notifEnabled ? Colors.primary : Colors.mutedForeground} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.notifLabel} numberOfLines={2}>{t('notifications.enable')}</Text>
-              <Text style={styles.notifStatus}>{notifEnabled ? t('notifications.enabled') : ''}</Text>
+              <Text style={styles.notifLabel} numberOfLines={2}>{t('notifications.enableMobile')}</Text>
+              <Text style={[styles.notifStatus, { color: notifEnabled ? Colors.success : Colors.mutedForeground }]}>
+                {notifEnabled ? t('notifications.enabled') : t('notifications.disabled')}
+              </Text>
             </View>
           </View>
-          <TouchableOpacity onPress={requestNotifications} disabled={notifEnabled}
-            style={[styles.permBtn, notifEnabled && { opacity: 0.5 }]}>
-            <Text style={styles.permBtnText} numberOfLines={1} adjustsFontSizeToFit>{t('notifications.permRequest')}</Text>
-          </TouchableOpacity>
+          <Switch
+            value={notifEnabled}
+            onValueChange={toggleNotifications}
+            trackColor={{ false: Colors.border, true: Colors.primary + '80' }}
+            thumbColor={notifEnabled ? Colors.primary : Colors.mutedForeground}
+          />
         </View>
       </Card>
 

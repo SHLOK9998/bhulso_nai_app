@@ -23,11 +23,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0EA5A4"
       },
-      "package": "com.healthmate.ai",
-      "permissions": [
-        "android.permission.SCHEDULE_EXACT_ALARM",
-        "android.permission.USE_EXACT_ALARM"
-      ]
+      "package": "com.healthmate.ai"
     },
     "web": {
       "bundler": "metro",

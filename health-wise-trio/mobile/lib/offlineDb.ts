@@ -163,6 +163,7 @@ export const dbGetMedicines = async (userId: string) => {
     const { data, error } = await supabase.from('medicines').select('*').eq('user_id', userId).order('created_at', { ascending: false });
     if (!error && data) {
       await setCachedData('medicines', userId, data, cacheKey);
+      await scheduleAllMedicineNotifications(userId);
     }
     return { data: data || [], error };
   } else {
@@ -264,6 +265,7 @@ export const dbGetFamilyMembers = async (userId: string) => {
     const { data, error } = await supabase.from('family_members').select('*').eq('user_id', userId).order('created_at');
     if (!error && data) {
       await setCachedData('family_members', userId, data, cacheKey);
+      await scheduleAllMedicineNotifications(userId);
     }
     return { data: data || [], error };
   } else {
